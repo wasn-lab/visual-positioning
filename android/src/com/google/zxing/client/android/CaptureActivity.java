@@ -414,7 +414,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       beepManager.playBeepSoundAndVibrate();
       drawResultPoints(barcode, scaleFactor, rawResult);
     }
-
     switch (source) {
       case NATIVE_APP_INTENT:
       case PRODUCT_SEARCH_LINK:
@@ -430,9 +429,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       case NONE:
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         if (fromLiveScan && prefs.getBoolean(PreferencesActivity.KEY_BULK_MODE, false)) {
-          String message = getResources().getString(R.string.msg_bulk_mode_scanned)
-              + " (" + rawResult.getText() + ')';
-          Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
+          String message = barcode.getWidth() + ":" + barcode.getHeight() + " (" + rawResult.getText() + rawResult.getResultPoints().toString() + ')';
+          Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
           // Wait a moment or else it will scan the same barcode continuously about 3 times
           restartPreviewAfterDelay(BULK_MODE_SCAN_DELAY_MS);
         } else {
@@ -467,12 +465,13 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       } else {
         paint.setStrokeWidth(10.0f);
         for (ResultPoint point : points) {
+          //Vincent: detected matrix position in this point array
           canvas.drawPoint(scaleFactor * point.getX(), scaleFactor * point.getY(), paint);
         }
       }
     }
   }
-
+  
   private static void drawLine(Canvas canvas, Paint paint, ResultPoint a, ResultPoint b, float scaleFactor) {
     canvas.drawLine(scaleFactor * a.getX(), 
                     scaleFactor * a.getY(), 
@@ -505,7 +504,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     String formattedTime = formatter.format(new Date(rawResult.getTimestamp()));
     TextView timeTextView = (TextView) findViewById(R.id.time_text_view);
     timeTextView.setText(formattedTime);
-
+  
 
     TextView metaTextView = (TextView) findViewById(R.id.meta_text_view);
     View metaTextViewLabel = findViewById(R.id.meta_text_view_label);
@@ -742,7 +741,17 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   private void resetStatusView() {
     resultView.setVisibility(View.GONE);
-    statusView.setText(R.string.msg_default_status);
+    //Change to position for debug
+    if(lastResult != null)
+    {
+    	ResultPoint[] pt = lastResult.getResultPoints();
+    	String print = "Rect:" + pt[0].toString() + pt[1].toString() + pt[2].toString();
+    	statusView.setText(print);
+    }
+    else
+    {
+    	statusView.setText("QR CODE NOT YET DETECTED!");
+    }
     statusView.setVisibility(View.VISIBLE);
     viewfinderView.setVisibility(View.VISIBLE);
     lastResult = null;

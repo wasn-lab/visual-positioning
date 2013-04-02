@@ -164,7 +164,7 @@ public final class HistoryManager {
     }
 
     ContentValues values = new ContentValues();
-    values.put(DBHelper.TEXT_COL, result.getText());
+    values.put(DBHelper.TEXT_COL, result.getText() + result.getCenter());
     values.put(DBHelper.FORMAT_COL, result.getBarcodeFormat().toString());
     values.put(DBHelper.DISPLAY_COL, handler.getDisplayContents().toString());
     values.put(DBHelper.TIMESTAMP_COL, System.currentTimeMillis());

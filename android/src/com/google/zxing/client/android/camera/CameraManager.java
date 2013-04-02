@@ -208,6 +208,7 @@ public final class CameraManager {
         // Called early, before init even finished
         return null;
       }
+      //Vincent: set to let zxing scan whole screen
       int width = screenResolution.x;
       int height = screenResolution.y;
       int leftOffset = (screenResolution.x - width) / 2;

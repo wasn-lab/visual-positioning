@@ -129,5 +129,27 @@ public final class Result {
   public String toString() {
     return text;
   }
+  
+  /**
+   * Find the center of decoded results when target is QR code.(We will skip other type of results)
+   * Now only use basic method to find center point.
+   * Need to improve algorithm in future to get more precise center of QR code pattern.
+   *
+   */
+  public ResultPoint getCenter() {
+	  ResultPoint center;
+	  if(resultPoints != null && resultPoints.length > 0) {
+		  if(BarcodeFormat.QR_CODE == format) {
+			  if(resultPoints.length == 3) {
+				  center = new ResultPoint((resultPoints[0].getX() + resultPoints[2].getX()) / 2, (resultPoints[0].getY() + resultPoints[2].getY()) / 2);
+				  return center;
+			  }
+			  else {
+				  
+			  }
+		  }
+	  }
+	  return null;
+  }  
 
 }

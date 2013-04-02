@@ -1,2 +1,5 @@
-
 *.class
+android/bin
+*.jar
+
+android/.settings/org.eclipse.jdt.core.prefs
