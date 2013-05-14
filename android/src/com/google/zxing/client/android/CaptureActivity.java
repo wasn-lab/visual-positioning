@@ -408,6 +408,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     ResultHandler resultHandler = ResultHandlerFactory.makeResultHandler(this, rawResult);
 
     boolean fromLiveScan = barcode != null;
+    viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
       historyManager.addHistoryItem(rawResult, resultHandler);
       // Then not from history, so beep/vibrate and we have an image to draw on
@@ -442,13 +443,13 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   /**
    * Superimpose a line for 1D or dots for 2D to highlight the key features of the barcode.
-   *
+   * Vincent: This funciton is only for thumbnail view. not for live view. So draw line in this bitmap will have no effect!
    * @param barcode   A bitmap of the captured image.
    * @param scaleFactor amount by which thumbnail was scaled
    * @param rawResult The decoded results which contains the points to draw.
    */
   private void drawResultPoints(Bitmap barcode, float scaleFactor, Result rawResult) {
-    ResultPoint[] points = rawResult.getResultPoints();
+	 ResultPoint[] points = rawResult.getResultPoints();
     if (points != null && points.length > 0) {
       Canvas canvas = new Canvas(barcode);
       Paint paint = new Paint();
@@ -465,7 +466,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       } else {
         paint.setStrokeWidth(10.0f);
         for (ResultPoint point : points) {
-          //Vincent: detected matrix position in this point array
           canvas.drawPoint(scaleFactor * point.getX(), scaleFactor * point.getY(), paint);
         }
       }
@@ -739,13 +739,14 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     resetStatusView();
   }
 
+  //Vincent: Can add information here. Will display on live screen.
   private void resetStatusView() {
     resultView.setVisibility(View.GONE);
     //Change to position for debug
     if(lastResult != null)
     {
     	ResultPoint[] pt = lastResult.getResultPoints();
-    	String print = "Rect:" + pt[0].toString() + pt[1].toString() + pt[2].toString();
+    	String print = "QR CODE FOUND!";
     	statusView.setText(print);
     }
     else
