@@ -16,6 +16,7 @@
 
 package com.google.zxing.client.android;
 
+import com.google.zxing.Result;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.client.android.camera.CameraManager;
 
@@ -55,6 +56,7 @@ public final class ViewfinderView extends View {
   private int scannerAlpha;
   private List<ResultPoint> possibleResultPoints;
   private List<ResultPoint> lastPossibleResultPoints;
+  private Result lastResult;
 
   // This constructor is used when the class is built from an XML resource.
   public ViewfinderView(Context context, AttributeSet attrs) {
@@ -100,14 +102,15 @@ public final class ViewfinderView extends View {
       paint.setAlpha(CURRENT_POINT_OPACITY);
       canvas.drawBitmap(resultBitmap, null, frame, paint);
     } else {
-
+    	showLocationInfo(canvas);
+/* bravesheng: disable laser animation
       // Draw a red "laser scanner" line through the middle to show decoding is active
       paint.setColor(laserColor);
       paint.setAlpha(SCANNER_ALPHA[scannerAlpha]);
       scannerAlpha = (scannerAlpha + 1) % SCANNER_ALPHA.length;
       int middle = frame.height() / 2 + frame.top;
       canvas.drawRect(frame.left + 2, middle - 1, frame.right - 1, middle + 2, paint);
-      
+*/      
       Rect previewFrame = cameraManager.getFramingRectInPreview();
       float scaleX = frame.width() / (float) previewFrame.width();
       float scaleY = frame.height() / (float) previewFrame.height();
@@ -173,6 +176,7 @@ public final class ViewfinderView extends View {
     invalidate();
   }
 
+  //bravesheng: This funciton called in DecodeThread
   public void addPossibleResultPoint(ResultPoint point) {
     List<ResultPoint> points = possibleResultPoints;
     synchronized (points) {
@@ -185,4 +189,43 @@ public final class ViewfinderView extends View {
     }
   }
 
+  /**
+   * Import last result points into ViewfinderView
+   *
+   * @param result Result points class.
+   * @author bravesheng
+   */
+  public void addSuccessResult(Result result)
+  {
+	  lastResult = result;
+  }
+  
+  /**
+   * Calculate qrcode positon and display.
+   *
+   * @canvas Canvas the canvas on which the background will be drawn
+   * @author bravesheng
+   */
+  private void showLocationInfo(Canvas canvas) {
+	  paint.setARGB(255, 255, 255, 0);
+	  paint.setStrokeWidth(5);
+	  paint.setTextSize(20);
+	  if(lastResult != null) {
+		  ResultPoint[] points = lastResult.getResultPoints();
+		  //calc 4nd point
+		  ResultPoint endpoint = new ResultPoint(points[0].getX() - (points[1].getX() - points[2].getX()), points[0].getY() - (points[1].getY() - points[2].getY()));
+		  canvas.drawLine(points[0].getX()/2, points[0].getY()/2, points[1].getX()/2, points[1].getY()/2, paint);
+		  canvas.drawLine(points[1].getX()/2, points[1].getY()/2, points[2].getX()/2, points[2].getY()/2, paint);
+		  String locStr = points[0].toString() + points[1].toString() + points[2].toString();
+		  canvas.drawText(locStr, (points[0].getX() + points[2].getX())/4, (points[0].getY() + points[2].getY())/4, paint);
+		  }
+	  }
+  
+  /**
+   * Calculate SAS width. Will compare 2 distance and use longest.
+   * @author bravesheng
+   */
+  private void calcSasSize() {
+	  ResultPoint[] points = lastResult.getResultPoints();
+	  float distA = Math.sqrt(Math.abs(points[0].getX()-points[1].getX()))
 }
