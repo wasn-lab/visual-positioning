@@ -44,8 +44,8 @@ final class CameraConfigurationManager {
   // This is bigger than the size of a small screen, which is still supported. The routine
   // below will still select the default (presumably 320x240) size for these. This prevents
   // accidental selection of very low resolution on some devices.
-  private static final int MIN_PREVIEW_PIXELS = 470 * 320; // normal screen
-  private static final int MAX_PREVIEW_PIXELS = 1280 * 720;
+  private static final int MIN_PREVIEW_PIXELS = 1920 * 1080; // normal screen
+  private static final int MAX_PREVIEW_PIXELS = 1920 * 1088;//bravesheng:Modify to let system open in highest resolution 1920x1088
 
   private final Context context;
   private Point screenResolution;
