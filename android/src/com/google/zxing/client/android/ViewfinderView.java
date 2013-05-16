@@ -227,5 +227,5 @@ public final class ViewfinderView extends View {
    */
   private void calcSasSize() {
 	  ResultPoint[] points = lastResult.getResultPoints();
-	  float distA = Math.sqrt(Math.abs(points[0].getX()-points[1].getX()))
+  }
 }
