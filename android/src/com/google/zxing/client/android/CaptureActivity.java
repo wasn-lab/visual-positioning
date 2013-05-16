@@ -443,7 +443,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   /**
    * Superimpose a line for 1D or dots for 2D to highlight the key features of the barcode.
-   * Vincent: This funciton is only for thumbnail view. not for live view. So draw line in this bitmap will have no effect!
+   * bravesheng: This funciton is only for thumbnail view. not for live view. So draw line in this bitmap will have no effect!
    * @param barcode   A bitmap of the captured image.
    * @param scaleFactor amount by which thumbnail was scaled
    * @param rawResult The decoded results which contains the points to draw.
@@ -739,7 +739,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     resetStatusView();
   }
 
-  //Vincent: Can add information here. Will display on live screen.
+  //bravesheng: Can add information here. Will display on live screen.
   private void resetStatusView() {
     resultView.setVisibility(View.GONE);
     //Change to position for debug

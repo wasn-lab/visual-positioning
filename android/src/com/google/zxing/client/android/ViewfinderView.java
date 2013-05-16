@@ -103,7 +103,7 @@ public final class ViewfinderView extends View {
       canvas.drawBitmap(resultBitmap, null, frame, paint);
     } else {
     	showLocationInfo(canvas);
-/* Vincent: disable laser animation
+/* bravesheng: disable laser animation
       // Draw a red "laser scanner" line through the middle to show decoding is active
       paint.setColor(laserColor);
       paint.setAlpha(SCANNER_ALPHA[scannerAlpha]);
@@ -176,7 +176,7 @@ public final class ViewfinderView extends View {
     invalidate();
   }
 
-  //Vincent: This funciton called in DecodeThread
+  //bravesheng: This funciton called in DecodeThread
   public void addPossibleResultPoint(ResultPoint point) {
     List<ResultPoint> points = possibleResultPoints;
     synchronized (points) {
@@ -193,7 +193,7 @@ public final class ViewfinderView extends View {
    * Import last result points into ViewfinderView
    *
    * @param result Result points class.
-   * @author Vincent Chien
+   * @author bravesheng
    */
   public void addSuccessResult(Result result)
   {
@@ -204,7 +204,7 @@ public final class ViewfinderView extends View {
    * Calculate qrcode positon and display.
    *
    * @canvas Canvas the canvas on which the background will be drawn
-   * @author Vincent Chien
+   * @author bravesheng
    */
   private void showLocationInfo(Canvas canvas) {
 	  paint.setARGB(255, 255, 255, 0);
@@ -220,4 +220,12 @@ public final class ViewfinderView extends View {
 		  canvas.drawText(locStr, (points[0].getX() + points[2].getX())/4, (points[0].getY() + points[2].getY())/4, paint);
 		  }
 	  }
+  
+  /**
+   * Calculate SAS width. Will compare 2 distance and use longest.
+   * @author bravesheng
+   */
+  private void calcSasSize() {
+	  ResultPoint[] points = lastResult.getResultPoints();
+	  float distA = Math.sqrt(Math.abs(points[0].getX()-points[1].getX()))
 }

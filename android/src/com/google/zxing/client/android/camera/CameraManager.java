@@ -196,7 +196,7 @@ public final class CameraManager {
    * far enough away to ensure the image will be in focus.
    *
    * @return The rectangle to draw on screen in window coordinates.
-   *  Vincent: Modified code to let system scan whole screen for localization use.
+   *  bravesheng: Modified code to let system scan whole screen for localization use.
    */
   public synchronized Rect getFramingRect() {
     if (framingRect == null) {
@@ -208,7 +208,7 @@ public final class CameraManager {
         // Called early, before init even finished
         return null;
       }
-      //Vincent: set to let zxing scan whole screen
+      //bravesheng: set to let zxing scan whole screen
       int width = screenResolution.x;
       int height = screenResolution.y;
       int leftOffset = (screenResolution.x - width) / 2;
