@@ -207,7 +207,7 @@ public final class ViewfinderView extends View {
   }
   
   /**
-   * Calculate qrcode positon and display.
+   * Display SAS info on live screen.
    *
    * @canvas Canvas the canvas on which the background will be drawn
    * @author bravesheng@gmail.com
@@ -224,7 +224,6 @@ public final class ViewfinderView extends View {
 		  float sasPosition[] = sasRelativePosition();
 		  String locStr = "";
 		  locStr = locStr.format("(%f,%f,%f)", sasPosition[0], sasPosition[1], sasPosition[2]);
-		  //canvas.drawText(locStr, (points[0].getX() + points[2].getX())/4, (points[0].getY() + points[2].getY())/4, paint);
 		  canvas.drawText(locStr, (points[0].getX() + points[2].getX())/4, (points[0].getY() + points[2].getY())/4, paint);
 		  }
 	  }
