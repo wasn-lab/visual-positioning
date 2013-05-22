@@ -107,14 +107,16 @@ public final class ViewfinderView extends View {
       canvas.drawBitmap(resultBitmap, null, frame, paint);
     } else {
     	showLocationInfo(canvas);
-/* bravesheng: disable laser animation
+// bravesheng: modify laser animation can be show center of camera
       // Draw a red "laser scanner" line through the middle to show decoding is active
       paint.setColor(laserColor);
       paint.setAlpha(SCANNER_ALPHA[scannerAlpha]);
       scannerAlpha = (scannerAlpha + 1) % SCANNER_ALPHA.length;
-      int middle = frame.height() / 2 + frame.top;
-      canvas.drawRect(frame.left + 2, middle - 1, frame.right - 1, middle + 2, paint);
-*/      
+      int horzontal_middle = frame.height() / 2 + frame.top;
+      int vertical_middle = frame.width() / 2 + frame.left;
+      canvas.drawRect(frame.left + 2, horzontal_middle - 1, frame.right - 1, horzontal_middle + 2, paint);
+      canvas.drawRect(vertical_middle - 1,frame.top + 2, vertical_middle + 2, frame.bottom - 1, paint);
+     
       Rect previewFrame = cameraManager.getFramingRectInPreview();
       float scaleX = frame.width() / (float) previewFrame.width();
       float scaleY = frame.height() / (float) previewFrame.height();
