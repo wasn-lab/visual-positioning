@@ -27,10 +27,12 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.lang.Math;
 
 /**
  * This view is overlaid on top of the camera preview. It adds the viewfinder rectangle and partial
@@ -57,6 +59,7 @@ public final class ViewfinderView extends View {
   private List<ResultPoint> possibleResultPoints;
   private List<ResultPoint> lastPossibleResultPoints;
   private Result lastResult;
+  private double qr_real_size = 7.7; //real QR code length.(cm)
 
   // This constructor is used when the class is built from an XML resource.
   public ViewfinderView(Context context, AttributeSet attrs) {
@@ -193,7 +196,7 @@ public final class ViewfinderView extends View {
    * Import last result points into ViewfinderView
    *
    * @param result Result points class.
-   * @author bravesheng
+   * @author bravesheng@gmail.com
    */
   public void addSuccessResult(Result result)
   {
@@ -204,7 +207,7 @@ public final class ViewfinderView extends View {
    * Calculate qrcode positon and display.
    *
    * @canvas Canvas the canvas on which the background will be drawn
-   * @author bravesheng
+   * @author bravesheng@gmail.com
    */
   private void showLocationInfo(Canvas canvas) {
 	  paint.setARGB(255, 255, 255, 0);
@@ -213,7 +216,6 @@ public final class ViewfinderView extends View {
 	  if(lastResult != null) {
 		  ResultPoint[] points = lastResult.getResultPoints();
 		  //calc 4nd point
-		  ResultPoint endpoint = new ResultPoint(points[0].getX() - (points[1].getX() - points[2].getX()), points[0].getY() - (points[1].getY() - points[2].getY()));
 		  canvas.drawLine(points[0].getX()/2, points[0].getY()/2, points[1].getX()/2, points[1].getY()/2, paint);
 		  canvas.drawLine(points[1].getX()/2, points[1].getY()/2, points[2].getX()/2, points[2].getY()/2, paint);
 		  String locStr = points[0].toString() + points[1].toString() + points[2].toString();
@@ -223,9 +225,29 @@ public final class ViewfinderView extends View {
   
   /**
    * Calculate SAS width. Will compare 2 distance and use longest.
-   * @author bravesheng
+   * @author bravesheng@gmail.com
    */
-  private void calcSasSize() {
+  public double calcSasSize() {
 	  ResultPoint[] points = lastResult.getResultPoints();
+	  double dist1 = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));
+	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
+	  return (dist1 + dist2) / 2;
+  }
+  
+  /**
+   * Calculate distance between SAS and camera.
+   * @author bravesheng@gmail.com
+   */
+  public double calcDistance() {
+	  double sas_pixel_length = calcSasSize();
+	  Log.d("zxing", "SAS pixel length " + sas_pixel_length + ",HorzontalAngle " + cameraManager.getHorizontalViewAngle());
+	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / 1920;
+	  Log.d("zxing", "angle_per_pixel(rad) " + angle_per_pixel);
+	  double angle_of_sas_size = angle_per_pixel * sas_pixel_length;
+	  Log.d("zxing", "angle of distance(rad) " + angle_of_sas_size);
+	  //D = tan((pi - angle_of_sas_size) / 2) x (qr_real_distance / 2) 
+	  double real_distance = Math.tan((Math.PI - angle_of_sas_size) / 2) * (qr_real_size / 2);
+	  Log.d("zxing", "real distance(cm) " + real_distance + "qr_real_size " + qr_real_size);
+	  return real_distance;
   }
 }

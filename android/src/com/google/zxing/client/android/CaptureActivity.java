@@ -402,7 +402,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
    * @param scaleFactor amount by which thumbnail was scaled
    * @param barcode   A greyscale bitmap of the camera data which was decoded.
    */
-  public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
+public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     inactivityTimer.onActivity();
     lastResult = rawResult;
     ResultHandler resultHandler = ResultHandlerFactory.makeResultHandler(this, rawResult);
@@ -430,8 +430,11 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       case NONE:
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         if (fromLiveScan && prefs.getBoolean(PreferencesActivity.KEY_BULK_MODE, false)) {
-          String message = barcode.getWidth() + ":" + barcode.getHeight() + " (" + rawResult.getText() + rawResult.getResultPoints().toString() + ')';
-          Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
+        	//bravesheng: Here we can show popup information in middle of screen.
+        	/*
+        	String message = "hello message!";
+        	Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
+        	*/
           // Wait a moment or else it will scan the same barcode continuously about 3 times
           restartPreviewAfterDelay(BULK_MODE_SCAN_DELAY_MS);
         } else {
@@ -745,8 +748,10 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     //Change to position for debug
     if(lastResult != null)
     {
-    	ResultPoint[] pt = lastResult.getResultPoints();
     	String print = "QR CODE FOUND!";
+    	double distance_pixel = viewfinderView.calcSasSize();
+    	double distance = viewfinderView.calcDistance();
+    	print = print.format("QR width:%fpixels, distance: %fcm", distance_pixel, distance);
     	statusView.setText(print);
     }
     else

@@ -16,15 +16,18 @@
 
 package com.google.zxing.client.android.camera;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.Camera;
+import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.client.android.camera.open.OpenCameraManager;
+import java.lang.Math;
 
 import java.io.IOException;
 
@@ -35,6 +38,7 @@ import java.io.IOException;
  *
  * @author dswitkin@google.com (Daniel Switkin)
  */
+@TargetApi(Build.VERSION_CODES.FROYO) //Because getHorizontalViewAngle and getVerticalViewAngle only support after FROYO.
 public final class CameraManager {
 
   private static final String TAG = CameraManager.class.getSimpleName();
@@ -49,6 +53,8 @@ public final class CameraManager {
   private boolean previewing;
   private int requestedFramingRectWidth;
   private int requestedFramingRectHeight;
+  private double HorizontalViewAngle;
+  private double VerticalViewAngle;
   /**
    * Preview frames are delivered here, which we pass on to the registered handler. Make sure to
    * clear the handler so it will only receive one message.
@@ -89,6 +95,8 @@ public final class CameraManager {
     }
 
     Camera.Parameters parameters = theCamera.getParameters();
+    HorizontalViewAngle = Math.PI / 180 * parameters.getHorizontalViewAngle();
+    VerticalViewAngle = Math.PI / 180 * parameters.getVerticalViewAngle();
     String parametersFlattened = parameters == null ? null : parameters.flatten(); // Save these, temporarily
     try {
       configManager.setDesiredCameraParameters(theCamera, false);
@@ -111,7 +119,23 @@ public final class CameraManager {
     }
 
   }
-
+  
+  /**
+   * return camera horizontal view angle.(unit is Radian)
+   * @author bravesheng@gmail.com
+   */
+  public double getHorizontalViewAngle() {
+	  return HorizontalViewAngle;
+  }
+  
+  /**
+   * return camera vertical view angle.(unit is Radian)
+   * @author bravesheng@gmail.com
+   */
+  public double getVerticalViewAngle() {
+	  return VerticalViewAngle;
+  }
+  
   public synchronized boolean isOpen() {
     return camera != null;
   }
