@@ -25,6 +25,7 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -218,7 +219,10 @@ public final class ViewfinderView extends View {
 		  //calc 4nd point
 		  canvas.drawLine(points[0].getX()/2, points[0].getY()/2, points[1].getX()/2, points[1].getY()/2, paint);
 		  canvas.drawLine(points[1].getX()/2, points[1].getY()/2, points[2].getX()/2, points[2].getY()/2, paint);
-		  String locStr = points[0].toString() + points[1].toString() + points[2].toString();
+		  float sasPosition[] = sasRelativePosition();
+		  String locStr = "";
+		  locStr = locStr.format("(%f,%f,%f)", sasPosition[0], sasPosition[1], sasPosition[2]);
+		  //canvas.drawText(locStr, (points[0].getX() + points[2].getX())/4, (points[0].getY() + points[2].getY())/4, paint);
 		  canvas.drawText(locStr, (points[0].getX() + points[2].getX())/4, (points[0].getY() + points[2].getY())/4, paint);
 		  }
 	  }
@@ -238,16 +242,33 @@ public final class ViewfinderView extends View {
    * Calculate distance between SAS and camera.
    * @author bravesheng@gmail.com
    */
-  public double calcDistance() {
+  public double calcSasDistance() {
 	  double sas_pixel_length = calcSasSize();
-	  Log.d("zxing", "SAS pixel length " + sas_pixel_length + ",HorzontalAngle " + cameraManager.getHorizontalViewAngle());
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / 1920;
-	  Log.d("zxing", "angle_per_pixel(rad) " + angle_per_pixel);
 	  double angle_of_sas_size = angle_per_pixel * sas_pixel_length;
-	  Log.d("zxing", "angle of distance(rad) " + angle_of_sas_size);
-	  //D = tan((pi - angle_of_sas_size) / 2) x (qr_real_distance / 2) 
+	  //real_distance = tan((pi - angle_of_sas_size) / 2) x (qr_real_distance / 2) 
 	  double real_distance = Math.tan((Math.PI - angle_of_sas_size) / 2) * (qr_real_size / 2);
-	  Log.d("zxing", "real distance(cm) " + real_distance + "qr_real_size " + qr_real_size);
 	  return real_distance;
+  }
+  
+  /**
+   * Calculate relative position between camera and SAS.
+   * Center of the coordinate system is camera. Horzontal axis = sasX, Vertical axis = sasY, Distahce axis = sasZ 
+   * @author bravesheng@gmail.com
+   */
+  public float[] sasRelativePosition() {
+	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / 1920;
+	  Point cameraResolution = cameraManager.getCameraResolution();
+	  double sasDistance = calcSasDistance();
+	  //determin center of SAS
+	  ResultPoint[] points = lastResult.getResultPoints();
+	  float rad_x = (float) ((((points[0].getX() + points[2].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel);
+	  float rad_y = (float) (((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel);
+	  float sasX = (float) (sasDistance * Math.sin(rad_x));
+	  float sasY = (float) (sasDistance * Math.sin(rad_y));
+	  float sasZ = (float) (sasDistance * (Math.cos(rad_x) + Math.cos(rad_y))/2);
+	  float sasAxis[] = {sasX, sasY, sasZ};
+	  Log.d("zxing", "Position:(" + sasX + "," + sasY + "," + sasZ + ")");
+	  return sasAxis;
   }
 }

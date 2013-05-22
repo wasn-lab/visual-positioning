@@ -136,6 +136,15 @@ public final class CameraManager {
 	  return VerticalViewAngle;
   }
   
+  /**
+   * Pass camera resolution
+   * @author bravesheng@gmail.com
+   * @return camera resolution
+   */
+  public Point getCameraResolution() {
+	  return configManager.getCameraResolution();
+  }
+  
   public synchronized boolean isOpen() {
     return camera != null;
   }

@@ -749,9 +749,6 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     if(lastResult != null)
     {
     	String print = "QR CODE FOUND!";
-    	double distance_pixel = viewfinderView.calcSasSize();
-    	double distance = viewfinderView.calcDistance();
-    	print = print.format("QR width:%fpixels, distance: %fcm", distance_pixel, distance);
     	statusView.setText(print);
     }
     else
