@@ -1,5 +1,12 @@
 *.class
 android/bin
+android/gen
 *.jar
 
 android/.settings/org.eclipse.jdt.core.prefs
+
+android/bin/AndroidManifest.xml
+
+android/bin/proguard.txt
+
+android/bin/proguard.txt
