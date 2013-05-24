@@ -21,6 +21,7 @@ import com.google.zxing.Result;
 import com.google.zxing.ResultMetadataType;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.client.android.camera.CameraManager;
+import com.google.zxing.client.android.gps.GPSTracker;
 import com.google.zxing.client.android.history.HistoryActivity;
 import com.google.zxing.client.android.history.HistoryItem;
 import com.google.zxing.client.android.history.HistoryManager;
@@ -29,6 +30,7 @@ import com.google.zxing.client.android.result.ResultHandler;
 import com.google.zxing.client.android.result.ResultHandlerFactory;
 import com.google.zxing.client.android.result.supplement.SupplementalInfoRetriever;
 import com.google.zxing.client.android.share.ShareActivity;
+import com.google.zxing.client.android.gps.*;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -532,7 +534,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     TextView contentsTextView = (TextView) findViewById(R.id.contents_text_view);
     CharSequence displayContents = resultHandler.getDisplayContents();
     contentsTextView.setText(displayContents);
-    // Crudely scale betweeen 22 and 32 -- bigger font for shorter text
+    // Crudely scale between 22 and 32 -- bigger font for shorter text
     int scaledSize = Math.max(22, 32 - displayContents.length() / 4);
     contentsTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, scaledSize);
 
@@ -748,6 +750,23 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     //Change to position for debug
     if(lastResult != null)
     {
+  	  GPSTracker gps;
+  	  gps = new GPSTracker(this);
+      // check if GPS enabled     
+      if(gps.canGetLocation()) {
+          double latitude = gps.getLatitude();
+          double longitude = gps.getLongitude();
+          // \n is for new line
+          Toast.makeText(getApplicationContext(), "GPS\nLat: " + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();    
+      } else {
+          // can't get location
+          // GPS or Network is not enabled
+          // Ask user to enable GPS/network in settings
+          gps.showSettingsAlert();
+      }
+  	  
+  	  
+  	  Log.d("zxing", "GPS enabled");
     	String print = "QR CODE FOUND!";
     	statusView.setText(print);
     }
