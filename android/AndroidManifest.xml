@@ -51,6 +51,7 @@
                     android:normalScreens="true"
                     android:smallScreens="true"
                     android:anyDensity="true"/>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
 
   <application android:icon="@drawable/launcher_icon"
                android:logo="@drawable/launcher_icon"
