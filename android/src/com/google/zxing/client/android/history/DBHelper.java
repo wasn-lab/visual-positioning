@@ -21,19 +21,24 @@ import android.database.sqlite.SQLiteDatabase;
 import android.content.Context;
 
 /**
- * @author Sean Owen
+ * @author bravesheng@gmail.com
+ * Use database to record road test log. Will save VPP / GPS / REAL positions.
+ * 
  */
 final class DBHelper extends SQLiteOpenHelper {
 
   private static final int DB_VERSION = 5;
-  private static final String DB_NAME = "barcode_scanner_history.db";
+  private static final String DB_NAME = "visual_positioning.db";
   static final String TABLE_NAME = "history";
   static final String ID_COL = "id";
-  static final String TEXT_COL = "text";
-  static final String FORMAT_COL = "format";
-  static final String DISPLAY_COL = "display";
+  static final String REAL_POS = "real_position";
+  static final String VPP_X = "vpp_x";
+  static final String VPP_Y = "vpp_y";
+  static final String VPP_Z = "vpp_z";
+  static final String GPS_LON = "gps_lon";
+  static final String GPS_LAT = "gps_lat";
+  static final String GPS_ALT = "gps_alt";
   static final String TIMESTAMP_COL = "timestamp";
-  static final String DETAILS_COL = "details";
 
   DBHelper(Context context) {
     super(context, DB_NAME, null, DB_VERSION);
@@ -44,11 +49,14 @@ final class DBHelper extends SQLiteOpenHelper {
     sqLiteDatabase.execSQL(
             "CREATE TABLE " + TABLE_NAME + " (" +
             ID_COL + " INTEGER PRIMARY KEY, " +
-            TEXT_COL + " TEXT, " +
-            FORMAT_COL + " TEXT, " +
-            DISPLAY_COL + " TEXT, " +
-            TIMESTAMP_COL + " INTEGER, " +
-            DETAILS_COL + " TEXT);");
+            REAL_POS + " TEXT, " +
+            VPP_X + " REAL, " +
+            VPP_Y + " REAL, " +
+            VPP_Z + " REAL, " +
+            GPS_LON + " REAL, " +
+            GPS_LAT + " REAL, " +
+            GPS_ALT + " REAL, " +
+            TIMESTAMP_COL + " INTEGER);");
   }
 
   @Override

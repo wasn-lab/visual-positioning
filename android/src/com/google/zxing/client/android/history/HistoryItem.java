@@ -16,35 +16,35 @@
 
 package com.google.zxing.client.android.history;
 
+import java.util.Date;
+
 import com.google.zxing.Result;
 
 public final class HistoryItem {
-
-  private final Result result;
-  private final String display;
-  private final String details;
+  private final Result result;	
+  private final String realPosition;
+  private final float vpp[];
+  private final double gps[];
+  private final long timestamp;
   
-  HistoryItem(Result result, String display, String details) {
-    this.result = result;
-    this.display = display;
-    this.details = details;
+  HistoryItem(Result result, String realPosition, float vpp[], double gps[], long timestamp) {
+	  this.result = result;
+	  this.realPosition = realPosition;
+	  this.vpp = vpp;
+	  this.gps = gps;
+	  this.timestamp = timestamp;
   }
-
+  
   public Result getResult() {
-    return result;
-  }
-
-  public String getDisplayAndDetails() {
-    StringBuilder displayResult = new StringBuilder();
-    if (display == null || display.length() == 0) {
-      displayResult.append(result.getText());
-    } else {
-      displayResult.append(display);
-    }
-    if (details != null && details.length() > 0) {
-      displayResult.append(" : ").append(details);
-    }
-    return displayResult.toString();
+	  return result;
   }
   
+  public String getText() {
+	  Date datetime = new Date(timestamp);
+	  return datetime.toString();
+  }
+  
+  public String getDisplayAndDetails() {
+	  return realPosition;
+  }
 }

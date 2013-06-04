@@ -30,7 +30,6 @@ import com.google.zxing.client.android.result.ResultHandler;
 import com.google.zxing.client.android.result.ResultHandlerFactory;
 import com.google.zxing.client.android.result.supplement.SupplementalInfoRetriever;
 import com.google.zxing.client.android.share.ShareActivity;
-import com.google.zxing.client.android.gps.*;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -412,7 +411,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     boolean fromLiveScan = barcode != null;
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
-      historyManager.addHistoryItem(viewfinderView.sasRelativePosition(), rawResult, resultHandler);
+      historyManager.addHistoryItem("demo", viewfinderView.sasRelativePosition(), rawResult, resultHandler);
       // Then not from history, so beep/vibrate and we have an image to draw on
       beepManager.playBeepSoundAndVibrate();
       drawResultPoints(barcode, scaleFactor, rawResult);
@@ -759,10 +758,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
           // \n is for new line
           Toast.makeText(getApplicationContext(), "GPS\nLat: " + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();    
       } else {
-          // can't get location
-          // GPS or Network is not enabled
-          // Ask user to enable GPS/network in settings
-          gps.showSettingsAlert();
+    	  Toast.makeText(getApplicationContext(), "GPS Disabled", Toast.LENGTH_LONG).show(); 
       }
   	  
   	  

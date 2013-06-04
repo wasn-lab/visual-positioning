@@ -95,7 +95,9 @@ public abstract class SupplementalInfoRetriever extends AsyncTask<Object,Object,
     HistoryManager historyManager = historyManagerRef.get();
     if (historyManager != null) {
       for (String[] text : newHistories) {
-        historyManager.addHistoryItemDetails(text[0], text[1]);
+    	  //Vincent: The only way to fill up history table "details" value. No more need is visual positioning project
+    	  //This code try to query more detail information from Internet. for example web text name via HTTP address.
+    	  //historyManager.addHistoryItemDetails(text[0], text[1]);
       }
     }
   }

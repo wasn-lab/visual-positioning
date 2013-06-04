@@ -224,8 +224,6 @@ public final class HistoryManager {
       cursor = db.query(DBHelper.TABLE_NAME,
                         ID_DETAIL_COL_PROJECTION,
                         DBHelper.TEXT_COL + "=?",
-                        new String[] { itemID },
-                        null,
                         null,
                         DBHelper.TIMESTAMP_COL + " DESC",
                         "1");
