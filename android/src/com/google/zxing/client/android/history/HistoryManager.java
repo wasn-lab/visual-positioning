@@ -21,6 +21,7 @@ import com.google.zxing.BarcodeFormat;
 import com.google.zxing.Result;
 import com.google.zxing.client.android.Intents;
 import com.google.zxing.client.android.PreferencesActivity;
+import com.google.zxing.client.android.gps.GPSTracker;
 import com.google.zxing.client.android.result.ResultHandler;
 
 import android.app.Activity;
@@ -33,6 +34,7 @@ import android.net.Uri;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -56,17 +58,19 @@ public final class HistoryManager {
   private static final int MAX_ITEMS = 2000;
 
   private static final String[] COLUMNS = {
-      DBHelper.TEXT_COL,
-      DBHelper.DISPLAY_COL,
-      DBHelper.FORMAT_COL,
+      DBHelper.REAL_POS,
+      DBHelper.VPP_X,
+      DBHelper.VPP_Y,
+      DBHelper.VPP_Z,
+      DBHelper.GPS_LON,
+      DBHelper.GPS_LAT,
+      DBHelper.GPS_ALT,
       DBHelper.TIMESTAMP_COL,
-      DBHelper.DETAILS_COL,
   };
 
   private static final String[] COUNT_COLUMN = { "COUNT(1)" };
 
   private static final String[] ID_COL_PROJECTION = { DBHelper.ID_COL };
-  private static final String[] ID_DETAIL_COL_PROJECTION = { DBHelper.ID_COL, DBHelper.DETAILS_COL };
   private static final DateFormat EXPORT_DATE_TIME_FORMAT =
       DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM);
 
@@ -99,17 +103,16 @@ public final class HistoryManager {
       db = helper.getReadableDatabase();
       cursor = db.query(DBHelper.TABLE_NAME, COLUMNS, null, null, null, null, DBHelper.TIMESTAMP_COL + " DESC");
       while (cursor.moveToNext()) {
-        String text = cursor.getString(0);
-        String display = cursor.getString(1);
-        String format = cursor.getString(2);
-        long timestamp = cursor.getLong(3);
-        String details = cursor.getString(4);
-        Result result = new Result(text, null, null, BarcodeFormat.valueOf(format), timestamp);
-        items.add(new HistoryItem(result, display, details));
-      }
-    } finally {
-      close(cursor, db);
-    }
+    	  String realPositio = cursor.getString(0);
+    	  float vpp_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
+    	  double gps_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
+    	  long timestamp = cursor.getLong(7);
+    	  Result result = new Result(realPositio, null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
+    	  items.add(new HistoryItem(result, realPositio, vpp_axis, gps_axis, timestamp));
+    	  }
+      } finally {
+    	  close(cursor, db);
+    	  }
     return items;
   }
 
@@ -118,19 +121,18 @@ public final class HistoryManager {
     SQLiteDatabase db = null;
     Cursor cursor = null;
     try {
-      db = helper.getReadableDatabase();
-      cursor = db.query(DBHelper.TABLE_NAME, COLUMNS, null, null, null, null, DBHelper.TIMESTAMP_COL + " DESC");
-      cursor.move(number + 1);
-      String text = cursor.getString(0);
-      String display = cursor.getString(1);
-      String format = cursor.getString(2);
-      long timestamp = cursor.getLong(3);
-      String details = cursor.getString(4);
-      Result result = new Result(text, null, null, BarcodeFormat.valueOf(format), timestamp);
-      return new HistoryItem(result, display, details);
-    } finally {
-      close(cursor, db);
-    }
+    	db = helper.getReadableDatabase();
+    	cursor = db.query(DBHelper.TABLE_NAME, COLUMNS, null, null, null, null, DBHelper.TIMESTAMP_COL + " DESC");
+    	cursor.move(number + 1);
+    	String realPositio = cursor.getString(0);
+    	float vpp_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
+    	double gps_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
+    	long timestamp = cursor.getLong(7);
+    	Result result = new Result(realPositio, null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
+    	return new HistoryItem(result, realPositio, vpp_axis, gps_axis, timestamp);
+    	} finally {
+    		close(cursor, db);
+    		}
   }
   
   public void deleteHistoryItem(int number) {
@@ -150,28 +152,28 @@ public final class HistoryManager {
     }
   }
 
-  public void addHistoryItem(float sasAxis[], Result result, ResultHandler handler) {
-	  String locStr = "";
-	  locStr = locStr.format("(%f,%f,%f)", sasAxis[0], sasAxis[1], sasAxis[2]);
-	  
-	    // Do not save this item to the history if the preference is turned off, or the contents are
-	    // considered secure.
-	    if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
-	        handler.areContentsSecure()) {
-	      return;
-	    }
-	    
-	    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-	    if (!prefs.getBoolean(PreferencesActivity.KEY_REMEMBER_DUPLICATES, false)) {
-	      deletePrevious(result.getText());
-	    }
-
+  public void addHistoryItem(String realPosition, float vppAxis[], double gpsAxis[], Result result, ResultHandler handler) {
+	  // Do not save this item to the history if the preference is turned off, or the contents are
+	  // considered secure.
+	  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
+			  handler.areContentsSecure()) {
+		  return;
+		  }
+	  SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+	  if (!prefs.getBoolean(PreferencesActivity.KEY_REMEMBER_DUPLICATES, false)) {
+		  deletePrevious(result.getText());
+		  }
 	    ContentValues values = new ContentValues();
-	    values.put(DBHelper.TEXT_COL, locStr);
-	    values.put(DBHelper.FORMAT_COL, result.getBarcodeFormat().toString());
-	    values.put(DBHelper.DISPLAY_COL, handler.getDisplayContents().toString());
+	    //Vincent: We need change code to get new result and put data into database.
+	    values.put(DBHelper.REAL_POS, realPosition);
+	    values.put(DBHelper.VPP_X, vppAxis[0]);
+	    values.put(DBHelper.VPP_Y, vppAxis[1]);
+	    values.put(DBHelper.VPP_Z, vppAxis[2]);
+	    values.put(DBHelper.GPS_LON, gpsAxis[0]);
+	    values.put(DBHelper.GPS_LAT, gpsAxis[1]);
+	    values.put(DBHelper.GPS_ALT, gpsAxis[2]);	
 	    values.put(DBHelper.TIMESTAMP_COL, System.currentTimeMillis());
-
+	    
 	    SQLiteOpenHelper helper = new DBHelper(activity);
 	    SQLiteDatabase db = null;
 	    try {
@@ -183,67 +185,15 @@ public final class HistoryManager {
 	    }
   }
   
-  public void addHistoryItem(Result result, ResultHandler handler) {
-    // Do not save this item to the history if the preference is turned off, or the contents are
-    // considered secure.
-    if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
-        handler.areContentsSecure()) {
-      return;
-    }
-
-    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-    if (!prefs.getBoolean(PreferencesActivity.KEY_REMEMBER_DUPLICATES, false)) {
-      deletePrevious(result.getText());
-    }
-
-    ContentValues values = new ContentValues();
-    values.put(DBHelper.TEXT_COL, result.getText() + result.getCenter());
-    values.put(DBHelper.FORMAT_COL, result.getBarcodeFormat().toString());
-    values.put(DBHelper.DISPLAY_COL, handler.getDisplayContents().toString());
-    values.put(DBHelper.TIMESTAMP_COL, System.currentTimeMillis());
-
-    SQLiteOpenHelper helper = new DBHelper(activity);
-    SQLiteDatabase db = null;
-    try {
-      db = helper.getWritableDatabase();      
-      // Insert the new entry into the DB.
-      db.insert(DBHelper.TABLE_NAME, DBHelper.TIMESTAMP_COL, values);
-    } finally {
-      close(null, db);
-    }
-  }
-
-  public void addHistoryItemDetails(String itemID, String itemDetails) {
-    // As we're going to do an update only we don't need need to worry
-    // about the preferences; if the item wasn't saved it won't be udpated
-    SQLiteOpenHelper helper = new DBHelper(activity);
-    SQLiteDatabase db = null;    
-    Cursor cursor = null;
-    try {
-      db = helper.getWritableDatabase();
-      cursor = db.query(DBHelper.TABLE_NAME,
-                        ID_DETAIL_COL_PROJECTION,
-                        DBHelper.TEXT_COL + "=?",
-                        null,
-                        DBHelper.TIMESTAMP_COL + " DESC",
-                        "1");
-      String oldID = null;
-      String oldDetails = null;
-      if (cursor.moveToNext()) {
-        oldID = cursor.getString(0);
-        oldDetails = cursor.getString(1);
+  public void addHistoryItem(String realPosition, float vppAxis[], Result result, ResultHandler handler) {
+  	  GPSTracker gps;
+  	  gps = new GPSTracker(activity);
+      // check if GPS enabled     
+      if(gps.canGetLocation()) {
+    	  double gpsAxis[] = {gps.getLatitude(), gps.getLongitude(), gps.getAltitude()};
+          addHistoryItem(realPosition, vppAxis, gpsAxis, result, handler);
       }
-
-      if (oldID != null) {
-        String newDetails = oldDetails == null ? itemDetails : oldDetails + " : " + itemDetails;
-        ContentValues values = new ContentValues();
-        values.put(DBHelper.DETAILS_COL, newDetails);
-        db.update(DBHelper.TABLE_NAME, values, DBHelper.ID_COL + "=?", new String[] { oldID });
-      }
-
-    } finally {
-      close(cursor, db);
-    }
+      
   }
 
   private void deletePrevious(String text) {
@@ -251,7 +201,8 @@ public final class HistoryManager {
     SQLiteDatabase db = null;
     try {
       db = helper.getWritableDatabase();      
-      db.delete(DBHelper.TABLE_NAME, DBHelper.TEXT_COL + "=?", new String[] { text });
+      //Vincent: I'm not sure how to change this SQL command too.
+      db.delete(DBHelper.TABLE_NAME, DBHelper.REAL_POS + "=?", new String[] { text });
     } finally {
       close(null, db);
     }
@@ -296,6 +247,7 @@ public final class HistoryManager {
    *  <li>Timestamp</li>
    *  <li>Formatted version of timestamp</li>
    * </ul>
+   * Vincent: will save as csv file here.
    */
   CharSequence buildHistory() {
     SQLiteOpenHelper helper = new DBHelper(activity);
@@ -315,15 +267,14 @@ public final class HistoryManager {
         historyText.append('"').append(massageHistoryField(cursor.getString(1))).append("\",");
         historyText.append('"').append(massageHistoryField(cursor.getString(2))).append("\",");
         historyText.append('"').append(massageHistoryField(cursor.getString(3))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getDouble(4)))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getDouble(5)))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getDouble(6)))).append("\",");
 
         // Add timestamp again, formatted
-        long timestamp = cursor.getLong(3);
+        long timestamp = cursor.getLong(7);
         historyText.append('"').append(massageHistoryField(
-            EXPORT_DATE_TIME_FORMAT.format(new Date(timestamp)))).append("\",");
-
-        // Above we're preserving the old ordering of columns which had formatted data in position 5
-
-        historyText.append('"').append(massageHistoryField(cursor.getString(4))).append("\"\r\n");
+            EXPORT_DATE_TIME_FORMAT.format(new Date(timestamp)))).append("\"\r\n");
       }
       return historyText;
     } finally {
