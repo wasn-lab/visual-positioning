@@ -58,7 +58,7 @@ public final class HistoryManager {
   private static final int MAX_ITEMS = 2000;
 
   private static final String[] COLUMNS = {
-      DBHelper.REAL_POS,
+      DBHelper.SAS_INFO,
       DBHelper.VPP_X,
       DBHelper.VPP_Y,
       DBHelper.VPP_Z,
@@ -103,12 +103,12 @@ public final class HistoryManager {
       db = helper.getReadableDatabase();
       cursor = db.query(DBHelper.TABLE_NAME, COLUMNS, null, null, null, null, DBHelper.TIMESTAMP_COL + " DESC");
       while (cursor.moveToNext()) {
-    	  String realPositio = cursor.getString(0);
+    	  String sasInfo = cursor.getString(0);
     	  float vpp_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
     	  double gps_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
     	  long timestamp = cursor.getLong(7);
-    	  Result result = new Result(realPositio, null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
-    	  items.add(new HistoryItem(result, realPositio, vpp_axis, gps_axis, timestamp));
+    	  Result result = new Result(sasInfo, null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
+    	  items.add(new HistoryItem(result, sasInfo, vpp_axis, gps_axis, timestamp));
     	  }
       } finally {
     	  close(cursor, db);
@@ -124,12 +124,12 @@ public final class HistoryManager {
     	db = helper.getReadableDatabase();
     	cursor = db.query(DBHelper.TABLE_NAME, COLUMNS, null, null, null, null, DBHelper.TIMESTAMP_COL + " DESC");
     	cursor.move(number + 1);
-    	String realPositio = cursor.getString(0);
+    	String sasInfo = cursor.getString(0);
     	float vpp_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
     	double gps_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
     	long timestamp = cursor.getLong(7);
-    	Result result = new Result(realPositio, null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
-    	return new HistoryItem(result, realPositio, vpp_axis, gps_axis, timestamp);
+    	Result result = new Result(sasInfo, null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
+    	return new HistoryItem(result, sasInfo, vpp_axis, gps_axis, timestamp);
     	} finally {
     		close(cursor, db);
     		}
@@ -152,7 +152,7 @@ public final class HistoryManager {
     }
   }
 
-  public void addHistoryItem(String realPosition, float vppAxis[], double gpsAxis[], Result result, ResultHandler handler) {
+  public void addHistoryItem(float vppAxis[], double gpsAxis[], Result result, ResultHandler handler) {
 	  // Do not save this item to the history if the preference is turned off, or the contents are
 	  // considered secure.
 	  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
@@ -165,7 +165,8 @@ public final class HistoryManager {
 		  }
 	    ContentValues values = new ContentValues();
 	    //Vincent: We need change code to get new result and put data into database.
-	    values.put(DBHelper.REAL_POS, realPosition);
+	    String sasInfo = result.getText();
+	    values.put(DBHelper.SAS_INFO, sasInfo);
 	    values.put(DBHelper.VPP_X, vppAxis[0]);
 	    values.put(DBHelper.VPP_Y, vppAxis[1]);
 	    values.put(DBHelper.VPP_Z, vppAxis[2]);
@@ -185,13 +186,13 @@ public final class HistoryManager {
 	    }
   }
   
-  public void addHistoryItem(String realPosition, float vppAxis[], Result result, ResultHandler handler) {
+  public void addHistoryItem(float vppAxis[], Result result, ResultHandler handler) {
   	  GPSTracker gps;
   	  gps = new GPSTracker(activity);
       // check if GPS enabled     
       if(gps.canGetLocation()) {
     	  double gpsAxis[] = {gps.getLatitude(), gps.getLongitude(), gps.getAltitude()};
-          addHistoryItem(realPosition, vppAxis, gpsAxis, result, handler);
+          addHistoryItem(vppAxis, gpsAxis, result, handler);
       }
       
   }
@@ -202,7 +203,7 @@ public final class HistoryManager {
     try {
       db = helper.getWritableDatabase();      
       //Vincent: I'm not sure how to change this SQL command too.
-      db.delete(DBHelper.TABLE_NAME, DBHelper.REAL_POS + "=?", new String[] { text });
+      db.delete(DBHelper.TABLE_NAME, DBHelper.SAS_INFO + "=?", new String[] { text });
     } finally {
       close(null, db);
     }

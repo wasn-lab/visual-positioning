@@ -411,7 +411,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     boolean fromLiveScan = barcode != null;
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
-      historyManager.addHistoryItem("demo", viewfinderView.sasRelativePosition(), rawResult, resultHandler);
+      historyManager.addHistoryItem(viewfinderView.sasRelativePosition(), rawResult, resultHandler);
       // Then not from history, so beep/vibrate and we have an image to draw on
       beepManager.playBeepSoundAndVibrate();
       drawResultPoints(barcode, scaleFactor, rawResult);

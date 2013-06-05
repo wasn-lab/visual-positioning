@@ -22,14 +22,14 @@ import com.google.zxing.Result;
 
 public final class HistoryItem {
   private final Result result;	
-  private final String realPosition;
+  private final String sasInfo;
   private final float vpp[];
   private final double gps[];
   private final long timestamp;
   
-  HistoryItem(Result result, String realPosition, float vpp[], double gps[], long timestamp) {
+  HistoryItem(Result result, String sasInfo, float vpp[], double gps[], long timestamp) {
 	  this.result = result;
-	  this.realPosition = realPosition;
+	  this.sasInfo = sasInfo;
 	  this.vpp = vpp;
 	  this.gps = gps;
 	  this.timestamp = timestamp;
@@ -45,6 +45,6 @@ public final class HistoryItem {
   }
   
   public String getDisplayAndDetails() {
-	  return realPosition;
+	  return sasInfo;
   }
 }

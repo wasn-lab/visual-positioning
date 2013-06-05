@@ -31,7 +31,7 @@ final class DBHelper extends SQLiteOpenHelper {
   private static final String DB_NAME = "visual_positioning.db";
   static final String TABLE_NAME = "history";
   static final String ID_COL = "id";
-  static final String REAL_POS = "real_position";
+  static final String SAS_INFO = "sas_info";
   static final String VPP_X = "vpp_x";
   static final String VPP_Y = "vpp_y";
   static final String VPP_Z = "vpp_z";
@@ -49,7 +49,7 @@ final class DBHelper extends SQLiteOpenHelper {
     sqLiteDatabase.execSQL(
             "CREATE TABLE " + TABLE_NAME + " (" +
             ID_COL + " INTEGER PRIMARY KEY, " +
-            REAL_POS + " TEXT, " +
+            SAS_INFO + " TEXT, " +
             VPP_X + " REAL, " +
             VPP_Y + " REAL, " +
             VPP_Z + " REAL, " +
