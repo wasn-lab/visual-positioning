@@ -60,7 +60,7 @@ public final class ViewfinderView extends View {
   private List<ResultPoint> possibleResultPoints;
   private List<ResultPoint> lastPossibleResultPoints;
   private Result lastResult;
-  private double qr_real_size = 7.6; //real QR code length.(cm)
+  private double qr_real_size = 12.2; //real QR code length.(cm)
 
   // This constructor is used when the class is built from an XML resource.
   public ViewfinderView(Context context, AttributeSet attrs) {

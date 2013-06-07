@@ -749,20 +749,9 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     //Change to position for debug
     if(lastResult != null)
     {
-  	  GPSTracker gps;
-  	  gps = new GPSTracker(this);
       // check if GPS enabled     
-      if(gps.canGetLocation()) {
-          double latitude = gps.getLatitude();
-          double longitude = gps.getLongitude();
-          // \n is for new line
-          Toast.makeText(getApplicationContext(), "GPS\nLat: " + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();    
-      } else {
-    	  Toast.makeText(getApplicationContext(), "GPS Disabled", Toast.LENGTH_LONG).show(); 
-      }
-  	  
-  	  
-  	  Log.d("zxing", "GPS enabled");
+    	float sasPosition[] = viewfinderView.sasRelativePosition();
+        Toast.makeText(getApplicationContext(), "QRCODE\n" + sasPosition[0] + ":" + sasPosition[1] + ":" + sasPosition[2], Toast.LENGTH_LONG).show();    
     	String print = "QR CODE FOUND!";
     	statusView.setText(print);
     }

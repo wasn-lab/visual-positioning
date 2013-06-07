@@ -95,8 +95,12 @@ public final class CameraManager {
     }
 
     Camera.Parameters parameters = theCamera.getParameters();
-    HorizontalViewAngle = Math.PI / 180 * parameters.getHorizontalViewAngle();
-    VerticalViewAngle = Math.PI / 180 * parameters.getVerticalViewAngle();
+    //Because parameters from device is not correct. We measure by ourself and get precise value.
+    //Current value is for NEW HTC ONE
+    //HorizontalViewAngle = Math.PI / 180 * parameters.getHorizontalViewAngle();
+    //VerticalViewAngle = Math.PI / 180 * parameters.getVerticalViewAngle();
+    HorizontalViewAngle = 1.38834772296;
+    VerticalViewAngle = 0.78507758145;
     String parametersFlattened = parameters == null ? null : parameters.flatten(); // Save these, temporarily
     try {
       configManager.setDesiredCameraParameters(theCamera, false);
