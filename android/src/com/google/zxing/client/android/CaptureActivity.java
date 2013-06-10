@@ -21,7 +21,6 @@ import com.google.zxing.Result;
 import com.google.zxing.ResultMetadataType;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.client.android.camera.CameraManager;
-import com.google.zxing.client.android.gps.GPSTracker;
 import com.google.zxing.client.android.history.HistoryActivity;
 import com.google.zxing.client.android.history.HistoryItem;
 import com.google.zxing.client.android.history.HistoryManager;
@@ -71,6 +70,11 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+
 /**
  * This activity opens the camera and does the actual scanning on a background thread. It draws a
  * viewfinder to help the user place the barcode correctly, shows feedback as the image processing
@@ -79,7 +83,7 @@ import java.util.Set;
  * @author dswitkin@google.com (Daniel Switkin)
  * @author Sean Owen
  */
-public final class CaptureActivity extends Activity implements SurfaceHolder.Callback {
+public final class CaptureActivity extends Activity implements SurfaceHolder.Callback, SensorEventListener {
 
   private static final String TAG = CaptureActivity.class.getSimpleName();
 
@@ -117,6 +121,15 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private InactivityTimer inactivityTimer;
   private BeepManager beepManager;
   private AmbientLightManager ambientLightManager;
+  //for sensors define
+  private SensorManager mSensorManager;
+  private Sensor mAccelerometer;
+  private Sensor mMagneticField;
+  private float[] accelerometer_values;
+  private float[] magnitude_values;
+  private int azimuth;
+  private int pitch;
+  private int roll;
 
   ViewfinderView getViewfinderView() {
     return viewfinderView;
@@ -134,6 +147,12 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   public void onCreate(Bundle icicle) {
     super.onCreate(icicle);
 
+    //for sensors
+    mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+    mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+    mMagneticField = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);       
+    
+    
     Window window = getWindow();
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     setContentView(R.layout.capture);
@@ -154,6 +173,9 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   protected void onResume() {
     super.onResume();
 
+    //for sensors
+    mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+    mSensorManager.registerListener(this, mMagneticField, SensorManager.SENSOR_DELAY_NORMAL);
     // CameraManager must be initialized here, not in onCreate(). This is necessary because we don't
     // want to open the camera driver and measure the screen size if we're going to show the help on
     // first launch. That led to bugs where the scanning rectangle was the wrong size and partially
@@ -275,6 +297,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       surfaceHolder.removeCallback(this);
     }
     super.onPause();
+    //for sensors
+    mSensorManager.unregisterListener(this);
   }
 
   @Override
@@ -767,4 +791,40 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
   public void drawViewfinder() {
     viewfinderView.drawViewfinder();
   }
+
+@Override
+public void onSensorChanged(SensorEvent event) {
+	if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+		accelerometer_values = (float[]) event.values.clone(); 
+	//	Log.w(TAG, "TYPE_ACCELEROMETER" + event.values[0] + ":" + event.values[1] + ":" + event.values[2]);
+	}
+	else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+		magnitude_values = (float[]) event.values.clone();
+		//Log.w(TAG, "TYPE_MAGNETIC_FIELD" + event.values[0] + ":" + event.values[1] + ":" + event.values[2]);
+	}
+	if (magnitude_values != null && accelerometer_values != null) {
+		float[] Ro = new float[9];
+		float[] values = new float[3];
+		SensorManager.getRotationMatrix(Ro, null, accelerometer_values, magnitude_values);
+		SensorManager.getOrientation(Ro, values); 
+		//Log.w(TAG, "Orentation:" + values[0] + ":" + values[1] + ":" + values[2]);
+		azimuth = (int)(values[0] * 180 / Math.PI);
+		if(azimuth  < 0) {
+			azimuth = 360 + azimuth;
+		}
+		pitch = (int)(values[1] * 180 / Math.PI);
+		roll = (int)(values[2] * 180 / Math.PI);
+		/*
+        StringBuilder sensorInfo = new StringBuilder();
+        	sensorInfo.append("azimuth:" + azimuth + "\npitch:" + pitch + "\nroll:" + roll);     
+        TextView tvMsg = (TextView)findViewById(R.id.text_view);
+        tvMsg.setText(sensorInfo); 
+        */
+	}
+}
+
+@Override
+public void onAccuracyChanged(Sensor sensor, int accuracy) {
+	
+}
 }
