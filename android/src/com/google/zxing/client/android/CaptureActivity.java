@@ -138,6 +138,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   //for GPS
   private LocationManager locationManager;    // The minimum distance to change Updates in meters
   private Location lastLocation;
+  private static final double centerLatitude = 24.967185;
+  private static final double centerLongitude = 121.187019;
   private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 0; // no limit  
   // The minimum time between updates in milliseconds
   private static final long MIN_TIME_BW_UPDATES = 1000; // 1 second
@@ -460,10 +462,20 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     	// check if GPS enabled    
     	if(lastLocation != null) {
     		float[] results = new float[3];
-    		Location.distanceBetween(24.967185, lastLocation.getLongitude(), lastLocation.getLatitude(), lastLocation.getLongitude(), results);
-    		gpsAxis[0] = results[0];
-    		Location.distanceBetween(lastLocation.getLatitude(), 121.187019, lastLocation.getLatitude(), lastLocation.getLongitude(), results);
-    		gpsAxis[1] = results[0];
+    		Location.distanceBetween(centerLatitude, lastLocation.getLongitude(), lastLocation.getLatitude(), lastLocation.getLongitude(), results);
+    		if( (int)results[1] == 0) {
+    			//0 means bearing to north. Otherwise will be 180. Means bearing to south
+    			gpsAxis[0] = results[0];
+    		} else {
+    			gpsAxis[0] = -results[0];
+    		}
+    		Location.distanceBetween(lastLocation.getLatitude(), centerLongitude, lastLocation.getLatitude(), lastLocation.getLongitude(), results);
+    		if((int)results[1] == 89) {
+    			//89 means bearing to east. Otherwise will be -89. Means bearing to west.
+    			gpsAxis[1] = results[0];
+    		} else {
+    			gpsAxis[1] = -results[0];
+    		}
     		gpsAxis[2] = (float)(150 - lastLocation.getAltitude());
     		historyManager.addHistoryItem(getVPP(), gpsAxis, rawResult, resultHandler);
     		}
@@ -828,7 +840,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     if(lastResult != null)
     {  
     	String print = "vppAxis: " + (int)vppAxis[0] + " : " + (int)vppAxis[1] + " : " + (int)vppAxis[2]
-    			+ "\ngpsAxis: " + (int)gpsAxis[0] + " : " + (int)gpsAxis[1] + " : " + (int)gpsAxis[2];
+    			+ "\ngpsAxis: " + gpsAxis[0] + " : " + gpsAxis[1] + " : " + gpsAxis[2];
     	statusView.setText(print);  		
     }
     else
@@ -884,7 +896,7 @@ public void onAccuracyChanged(Sensor sensor, int accuracy) {
 @Override
 public void onLocationChanged(Location location) {
 	// TODO Auto-generated method stub
-	Log.w("zxing", "onLocationChanged " + location.getLatitude() + " " + location.getLongitude());
+	//Log.w("zxing", "onLocationChanged " + location.getLatitude() + " " + location.getLongitude());
 	lastLocation = location;
 }
 
