@@ -21,7 +21,6 @@ import com.google.zxing.BarcodeFormat;
 import com.google.zxing.Result;
 import com.google.zxing.client.android.Intents;
 import com.google.zxing.client.android.PreferencesActivity;
-import com.google.zxing.client.android.gps.GPSTracker;
 import com.google.zxing.client.android.result.ResultHandler;
 
 import android.app.Activity;
@@ -34,7 +33,6 @@ import android.net.Uri;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.util.Log;
-import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -152,7 +150,7 @@ public final class HistoryManager {
     }
   }
 
-  public void addHistoryItem(float vppAxis[], double gpsAxis[], Result result, ResultHandler handler) {
+  public void addHistoryItem(double vppAxis[], float gpsAxis[], Result result, ResultHandler handler) {
 	  // Do not save this item to the history if the preference is turned off, or the contents are
 	  // considered secure.
 	  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
@@ -184,17 +182,6 @@ public final class HistoryManager {
 	    } finally {
 	      close(null, db);
 	    }
-  }
-  
-  public void addHistoryItem(float vppAxis[], Result result, ResultHandler handler) {
-  	  GPSTracker gps;
-  	  gps = new GPSTracker(activity);
-      // check if GPS enabled     
-      if(gps.canGetLocation()) {
-    	  double gpsAxis[] = {gps.getLatitude(), gps.getLongitude(), gps.getAltitude()};
-          addHistoryItem(vppAxis, gpsAxis, result, handler);
-      }
-      
   }
 
   private void deletePrevious(String text) {

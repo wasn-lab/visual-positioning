@@ -228,9 +228,8 @@ public final class ViewfinderView extends View {
 	      float scaleY = frame.height() / (float) previewFrame.height();
 		  canvas.drawLine(points[0].getX()*scaleX, points[0].getY()*scaleY, points[1].getX()*scaleX, points[1].getY()*scaleY, paint);
 		  canvas.drawLine(points[1].getX()*scaleX, points[1].getY()*scaleY, points[2].getX()*scaleX, points[2].getY()*scaleY, paint);
-		  float sasPosition[] = sasRelativePosition();
 		  String locStr = "";
-		  locStr = locStr.format("(%f,%f,%f)", sasPosition[0], sasPosition[1], sasPosition[2]);
+		  locStr = "length = " + calcSasDistance();
 		  canvas.drawText(locStr, (points[0].getX() + points[2].getX()) / 2 *scaleX, (points[0].getY() + points[2].getY()) / 2 *scaleY, paint);
 		  }
 	  }
@@ -262,7 +261,7 @@ public final class ViewfinderView extends View {
   
   /**
    * Calculate relative position between camera and SAS.
-   * Center of the coordinate system is camera. Horzontal axis = sasX, Vertical axis = sasY, Distahce axis = sasZ 
+   * Center of the coordinate system is camera. Horizontal axis = sasX, Distance axis = sasY, Vertical axis = sasZ 
    * @author bravesheng@gmail.com
    */
   public float[] sasRelativePosition() {
@@ -274,10 +273,9 @@ public final class ViewfinderView extends View {
 	  float rad_x = (float) ((((points[0].getX() + points[2].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel);
 	  float rad_y = (float) (((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel);
 	  float sasX = (float) (sasDistance * Math.sin(rad_x));
-	  float sasY = (float) (sasDistance * Math.sin(rad_y));
-	  float sasZ = (float) (sasDistance * (Math.cos(rad_x) + Math.cos(rad_y))/2);
+	  float sasZ = (float) (sasDistance * Math.sin(rad_y));
+	  float sasY = (float) (sasDistance * (Math.cos(rad_x) + Math.cos(rad_y))/2);
 	  float sasAxis[] = {sasX, sasY, sasZ};
-	  Log.d("zxing", "Position:(" + sasX + "," + sasY + "," + sasZ + ")");
 	  return sasAxis;
   }
 }

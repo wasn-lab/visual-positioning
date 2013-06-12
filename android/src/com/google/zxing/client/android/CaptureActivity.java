@@ -40,6 +40,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -60,7 +63,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.io.IOException;
 import java.text.DateFormat;
@@ -83,7 +85,7 @@ import android.hardware.SensorManager;
  * @author dswitkin@google.com (Daniel Switkin)
  * @author Sean Owen
  */
-public final class CaptureActivity extends Activity implements SurfaceHolder.Callback, SensorEventListener {
+public final class CaptureActivity extends Activity implements SurfaceHolder.Callback, SensorEventListener, LocationListener {
 
   private static final String TAG = CaptureActivity.class.getSimpleName();
 
@@ -127,9 +129,19 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private Sensor mMagneticField;
   private float[] accelerometer_values;
   private float[] magnitude_values;
+  private float[] orientationValues  = new float[3];
   private int azimuth;
   private int pitch;
   private int roll;
+  private double[] vppAxis = new double[3];
+  private float[] gpsAxis = new float[3];
+  //for GPS
+  private LocationManager locationManager;    // The minimum distance to change Updates in meters
+  private Location lastLocation;
+  private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 0; // no limit  
+  // The minimum time between updates in milliseconds
+  private static final long MIN_TIME_BW_UPDATES = 1000; // 1 second
+
 
   ViewfinderView getViewfinderView() {
     return viewfinderView;
@@ -146,13 +158,11 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   @Override
   public void onCreate(Bundle icicle) {
     super.onCreate(icicle);
-
+    Log.w("zxing", "onCreate");
     //for sensors
     mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
     mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
     mMagneticField = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);       
-    
-    
     Window window = getWindow();
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     setContentView(R.layout.capture);
@@ -172,10 +182,15 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   @Override
   protected void onResume() {
     super.onResume();
-
+    Log.w("zxing", "onResume");
     //for sensors
     mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     mSensorManager.registerListener(this, mMagneticField, SensorManager.SENSOR_DELAY_NORMAL);
+    //for GPS
+    locationManager = (LocationManager) this.getSystemService(LOCATION_SERVICE);
+    if(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+    	locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME_BW_UPDATES, MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+    }
     // CameraManager must be initialized here, not in onCreate(). This is necessary because we don't
     // want to open the camera driver and measure the screen size if we're going to show the help on
     // first launch. That led to bugs where the scanning rectangle was the wrong size and partially
@@ -284,6 +299,11 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   @Override
   protected void onPause() {
+	  Log.w("zxing", "onPause");
+	  //pause GPS listener
+	  if(locationManager != null){
+		  locationManager.removeUpdates(this);
+		  }     
     if (handler != null) {
       handler.quitSynchronously();
       handler = null;
@@ -303,6 +323,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   @Override
   protected void onDestroy() {
+	  Log.w("zxing", "onDestroy");
     inactivityTimer.shutdown();
     super.onDestroy();
   }
@@ -435,11 +456,21 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     boolean fromLiveScan = barcode != null;
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
-      historyManager.addHistoryItem(viewfinderView.sasRelativePosition(), rawResult, resultHandler);
-      // Then not from history, so beep/vibrate and we have an image to draw on
-      beepManager.playBeepSoundAndVibrate();
-      drawResultPoints(barcode, scaleFactor, rawResult);
-    }
+    	historyManager.addHistoryItem(getVPP(), gpsAxis, rawResult, resultHandler);
+    	// check if GPS enabled    
+    	if(lastLocation != null) {
+    		float[] results = new float[3];
+    		Location.distanceBetween(24.967185, lastLocation.getLongitude(), lastLocation.getLatitude(), lastLocation.getLongitude(), results);
+    		gpsAxis[0] = results[0];
+    		Location.distanceBetween(lastLocation.getLatitude(), 121.187019, lastLocation.getLatitude(), lastLocation.getLongitude(), results);
+    		gpsAxis[1] = results[0];
+    		gpsAxis[2] = (float)(150 - lastLocation.getAltitude());
+    		historyManager.addHistoryItem(getVPP(), gpsAxis, rawResult, resultHandler);
+    		}
+    	// Then not from history, so beep/vibrate and we have an image to draw on
+    	beepManager.playBeepSoundAndVibrate();
+    	drawResultPoints(barcode, scaleFactor, rawResult);
+    	}
     switch (source) {
       case NATIVE_APP_INTENT:
       case PRODUCT_SEARCH_LINK:
@@ -458,7 +489,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
         	//bravesheng: Here we can show popup information in middle of screen.
         	/*
         	String message = "hello message!";
-        	Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
+        	Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
         	*/
           // Wait a moment or else it will scan the same barcode continuously about 3 times
           restartPreviewAfterDelay(BULK_MODE_SCAN_DELAY_MS);
@@ -767,17 +798,38 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     resetStatusView();
   }
 
+  private double[] getVPP() {
+	    if(lastResult != null)
+	    {  
+	    	float sasPosition[] = viewfinderView.sasRelativePosition();
+	    	//Rotate Y
+	    	double x1 = sasPosition[0] * Math.cos(orientationValues[1]) + sasPosition[2] * Math.sin(orientationValues[1]);
+	    	double y1 = sasPosition[1];
+	    	double z1 = -sasPosition[0] * Math.sin(orientationValues[1]) + sasPosition[2] * Math.cos(orientationValues[1]);
+	    	//Rotate X
+	    	double x2 = x1;
+	    	double y2 = y1 * Math.cos(orientationValues[2]) - z1 * Math.sin(orientationValues[2]);
+	    	double z2 = y1 * Math.sin(orientationValues[2]) - z1 * Math.cos(orientationValues[2]);
+	    	//Rotate Z
+	    	vppAxis[0] = x2 * Math.cos(-orientationValues[0]) - y2 * Math.sin(-orientationValues[0]);
+	    	vppAxis[1] = x2 * Math.sin(-orientationValues[0]) + y2 * Math.cos(-orientationValues[0]);
+	    	vppAxis[2] = z2;
+	    	return vppAxis;
+	    }
+	    else {
+	    	return null;
+	    }
+  }
+  
   //bravesheng: Can add information here. Will display on live screen.
   private void resetStatusView() {
     resultView.setVisibility(View.GONE);
     //Change to position for debug
     if(lastResult != null)
-    {
-      // check if GPS enabled     
-    	float sasPosition[] = viewfinderView.sasRelativePosition();
-        Toast.makeText(getApplicationContext(), "QRCODE\n" + sasPosition[0] + ":" + sasPosition[1] + ":" + sasPosition[2], Toast.LENGTH_LONG).show();    
-    	String print = "QR CODE FOUND!";
-    	statusView.setText(print);
+    {  
+    	String print = "vppAxis: " + (int)vppAxis[0] + " : " + (int)vppAxis[1] + " : " + (int)vppAxis[2]
+    			+ "\ngpsAxis: " + (int)gpsAxis[0] + " : " + (int)gpsAxis[1] + " : " + (int)gpsAxis[2];
+    	statusView.setText(print);  		
     }
     else
     {
@@ -796,24 +848,25 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
 public void onSensorChanged(SensorEvent event) {
 	if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
 		accelerometer_values = (float[]) event.values.clone(); 
-	//	Log.w(TAG, "TYPE_ACCELEROMETER" + event.values[0] + ":" + event.values[1] + ":" + event.values[2]);
 	}
 	else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
 		magnitude_values = (float[]) event.values.clone();
-		//Log.w(TAG, "TYPE_MAGNETIC_FIELD" + event.values[0] + ":" + event.values[1] + ":" + event.values[2]);
 	}
 	if (magnitude_values != null && accelerometer_values != null) {
 		float[] Ro = new float[9];
-		float[] values = new float[3];
 		SensorManager.getRotationMatrix(Ro, null, accelerometer_values, magnitude_values);
-		SensorManager.getOrientation(Ro, values); 
-		//Log.w(TAG, "Orentation:" + values[0] + ":" + values[1] + ":" + values[2]);
-		azimuth = (int)(values[0] * 180 / Math.PI);
+		SensorManager.getOrientation(Ro, orientationValues);
+		//finetune values for ladscape mode
+		orientationValues[0] = orientationValues[0] + (float)Math.PI / 2;
+		orientationValues[1] = -1 * orientationValues[1];
+		orientationValues[2] = orientationValues[2] + (float)Math.PI / 2;
+		
+		azimuth = (int)(orientationValues[0] * 180 / Math.PI);
 		if(azimuth  < 0) {
 			azimuth = 360 + azimuth;
 		}
-		pitch = (int)(values[1] * 180 / Math.PI);
-		roll = (int)(values[2] * 180 / Math.PI);
+		pitch = (int)(orientationValues[1] * 180 / Math.PI);
+		roll = (int)(orientationValues[2] * 180 / Math.PI);
 		/*
         StringBuilder sensorInfo = new StringBuilder();
         	sensorInfo.append("azimuth:" + azimuth + "\npitch:" + pitch + "\nroll:" + roll);     
@@ -825,6 +878,31 @@ public void onSensorChanged(SensorEvent event) {
 
 @Override
 public void onAccuracyChanged(Sensor sensor, int accuracy) {
-	
+	Log.w("zxing", "onAccuracyChanged: " + accuracy);
+}
+
+@Override
+public void onLocationChanged(Location location) {
+	// TODO Auto-generated method stub
+	Log.w("zxing", "onLocationChanged " + location.getLatitude() + " " + location.getLongitude());
+	lastLocation = location;
+}
+
+@Override
+public void onStatusChanged(String provider, int status, Bundle extras) {
+	// TODO Auto-generated method stub
+	Log.w("zxing", "onStatusChanged");
+}
+
+@Override
+public void onProviderEnabled(String provider) {
+	// TODO Auto-generated method stub
+	Log.w("zxing", "onProviderEnabled");
+}
+
+@Override
+public void onProviderDisabled(String provider) {
+	// TODO Auto-generated method stub
+	Log.w("zxing", "onProviderDisabled");
 }
 }
