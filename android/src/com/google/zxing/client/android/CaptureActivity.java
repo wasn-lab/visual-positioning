@@ -71,6 +71,8 @@ import java.util.Date;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -127,14 +129,34 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private SensorManager mSensorManager;
   private Sensor mAccelerometer;
   private Sensor mMagneticField;
+  private Sensor mGyroscope;
   private float[] accelerometer_values;
   private float[] magnitude_values;
-  private float[] orientationValues  = new float[3];
-  private int azimuth;
-  private int pitch;
-  private int roll;
-  private double[] vppAxis = new double[3];
-  private float[] gpsAxis = new float[3];
+  // orientation angles from accel and magnet
+  private float[] accMagOrientation = new float[3];
+  // final orientation angles from sensor fusion
+  private float[] fusedOrientation = new float[3];
+  private float[] finalOrientation = new float[3];
+  private double[] vppAxis = new double[4];
+  private float[] gpsAxis = new float[3]; 
+  public static final float EPSILON = 0.000000001f;
+  private static final float NS2S = 1.0f / 1000000000.0f;
+  private float timestamp;
+  private boolean initState = true;
+  // angular speeds from gyro
+  private float[] gyro = new float[3];
+
+  // rotation matrix from gyro data
+  private float[] gyroMatrix = new float[9];
+
+  // orientation angles from gyro matrix
+  private float[] gyroOrientation = new float[3];
+  
+  //for fusion
+	public static final int TIME_CONSTANT = 100;
+	public static final float FILTER_COEFFICIENT = 0.995f;
+	private Timer fuseTimer = new Timer();
+  
   //for GPS
   private LocationManager locationManager;    // The minimum distance to change Updates in meters
   private Location lastLocation;
@@ -162,9 +184,19 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     super.onCreate(icicle);
     Log.w("zxing", "onCreate");
     //for sensors
+    // initialise gyroMatrix with identity matrix
+    gyroMatrix[0] = 1.0f; gyroMatrix[1] = 0.0f; gyroMatrix[2] = 0.0f;
+    gyroMatrix[3] = 0.0f; gyroMatrix[4] = 1.0f; gyroMatrix[5] = 0.0f;
+    gyroMatrix[6] = 0.0f; gyroMatrix[7] = 0.0f; gyroMatrix[8] = 1.0f;
     mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
     mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
     mMagneticField = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);       
+    mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+    // wait for one second until gyroscope and magnetometer/accelerometer
+    // data is initialised then scedule the complementary filter task
+    fuseTimer.scheduleAtFixedRate(new calculateFusedOrientationTask(),
+                                  1000, TIME_CONSTANT);
+    
     Window window = getWindow();
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     setContentView(R.layout.capture);
@@ -188,6 +220,9 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     //for sensors
     mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     mSensorManager.registerListener(this, mMagneticField, SensorManager.SENSOR_DELAY_NORMAL);
+    mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_FASTEST);
+    //for Gyroscope
+	initState = true;
     //for GPS
     locationManager = (LocationManager) this.getSystemService(LOCATION_SERVICE);
     if(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
@@ -458,27 +493,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     boolean fromLiveScan = barcode != null;
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
-    	historyManager.addHistoryItem(getVPP(), gpsAxis, rawResult, resultHandler);
-    	// check if GPS enabled    
-    	if(lastLocation != null) {
-    		float[] results = new float[3];
-    		Location.distanceBetween(centerLatitude, lastLocation.getLongitude(), lastLocation.getLatitude(), lastLocation.getLongitude(), results);
-    		if( (int)results[1] == 0) {
-    			//0 means bearing to north. Otherwise will be 180. Means bearing to south
-    			gpsAxis[0] = results[0];
-    		} else {
-    			gpsAxis[0] = -results[0];
-    		}
-    		Location.distanceBetween(lastLocation.getLatitude(), centerLongitude, lastLocation.getLatitude(), lastLocation.getLongitude(), results);
-    		if((int)results[1] == 89) {
-    			//89 means bearing to east. Otherwise will be -89. Means bearing to west.
-    			gpsAxis[1] = results[0];
-    		} else {
-    			gpsAxis[1] = -results[0];
-    		}
-    		gpsAxis[2] = (float)(150 - lastLocation.getAltitude());
-    		historyManager.addHistoryItem(getVPP(), gpsAxis, rawResult, resultHandler);
-    		}
+    	historyManager.addHistoryItem(getVPP(), gpsAxis, finalOrientation, rawResult, resultHandler);
     	// Then not from history, so beep/vibrate and we have an image to draw on
     	beepManager.playBeepSoundAndVibrate();
     	drawResultPoints(barcode, scaleFactor, rawResult);
@@ -811,21 +826,29 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
   }
 
   private double[] getVPP() {
-	    if(lastResult != null)
-	    {  
+	  	finalOrientation = gyroOrientation.clone();
+	    if(lastResult != null) //Do rotate coordinate to match world coordinate system
+	    {	
 	    	float sasPosition[] = viewfinderView.sasRelativePosition();
 	    	//Rotate Y
-	    	double x1 = sasPosition[0] * Math.cos(orientationValues[1]) + sasPosition[2] * Math.sin(orientationValues[1]);
+	    	double x1 = sasPosition[0] * Math.cos(finalOrientation[1]) + sasPosition[2] * Math.sin(finalOrientation[1]);
 	    	double y1 = sasPosition[1];
-	    	double z1 = -sasPosition[0] * Math.sin(orientationValues[1]) + sasPosition[2] * Math.cos(orientationValues[1]);
+	    	double z1 = -sasPosition[0] * Math.sin(finalOrientation[1]) + sasPosition[2] * Math.cos(finalOrientation[1]);
 	    	//Rotate X
 	    	double x2 = x1;
-	    	double y2 = y1 * Math.cos(orientationValues[2]) - z1 * Math.sin(orientationValues[2]);
-	    	double z2 = y1 * Math.sin(orientationValues[2]) - z1 * Math.cos(orientationValues[2]);
+	    	double y2 = y1 * Math.cos(finalOrientation[2]) - z1 * Math.sin(finalOrientation[2]);
+	    	double z2 = y1 * Math.sin(finalOrientation[2]) - z1 * Math.cos(finalOrientation[2]);
 	    	//Rotate Z
-	    	vppAxis[0] = x2 * Math.cos(-orientationValues[0]) - y2 * Math.sin(-orientationValues[0]);
-	    	vppAxis[1] = x2 * Math.sin(-orientationValues[0]) + y2 * Math.cos(-orientationValues[0]);
-	    	vppAxis[2] = z2;
+	    	//for test rotate to 90
+	    	//accMagOrientation[0] = (float)Math.PI / 2;
+	    	double x3 = x2 * Math.cos(-finalOrientation[0]) - y2 * Math.sin(-finalOrientation[0]);
+	    	double y3 = x2 * Math.sin(-finalOrientation[0]) + y2 * Math.cos(-finalOrientation[0]);
+	    	double z3 = z2;
+	    	//Rotate to world coordinate and convert unit to meters
+	    	vppAxis[0] = -y3 / 100;	//mapping to longitude
+	    	vppAxis[1] = -x3 / 100;	//mapping to latitude
+	    	vppAxis[2] = z3 / 100;
+	    	vppAxis[3] = viewfinderView.getSasSize();
 	    	return vppAxis;
 	    }
 	    else {
@@ -837,19 +860,16 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
   private void resetStatusView() {
     resultView.setVisibility(View.GONE);
     //Change to position for debug
-    if(lastResult != null)
-    {  
-    	String print = "vppAxis: " + (int)vppAxis[0] + " : " + (int)vppAxis[1] + " : " + (int)vppAxis[2]
-    			+ "\ngpsAxis: " + gpsAxis[0] + " : " + gpsAxis[1] + " : " + gpsAxis[2];
-    	statusView.setText(print);  		
-    }
-    else
-    {
-    	statusView.setText("QR CODE NOT YET DETECTED!");
-    }
+    String print = "vppAxis: " + (float)vppAxis[0] + " : " + (float)vppAxis[1] + " : " + (float)vppAxis[2]
+    		+ "\ngpsAxis: " + gpsAxis[0] + " : " + gpsAxis[1] + " : " + gpsAxis[2]
+    		+ "\nMag[0]:" + accMagOrientation[0]*180/Math.PI + " [1]:" + accMagOrientation[1]*180/Math.PI + " [2]:" + accMagOrientation[2]*180/Math.PI
+    		+ "\nGyr[0]:" + gyroOrientation[0]*180/Math.PI + " [1]:" + gyroOrientation[1]*180/Math.PI + " [2]:" + gyroOrientation[2]*180/Math.PI
+			+ "\nFus[0]:" + fusedOrientation[0]*180/Math.PI  + " [1]:" + fusedOrientation[1]*180/Math.PI + " [2]:" + fusedOrientation[2]*180/Math.PI;
+    statusView.setText(print);  		
     statusView.setVisibility(View.VISIBLE);
     viewfinderView.setVisibility(View.VISIBLE);
     lastResult = null;
+	Log.w("zxing",print);
   }
 
   public void drawViewfinder() {
@@ -860,32 +880,152 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
 public void onSensorChanged(SensorEvent event) {
 	if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
 		accelerometer_values = (float[]) event.values.clone(); 
+		calculateAccMagOrientation();
+		/*
+		Log.w("zxing","vppAxis: " + (float)vppAxis[0] + " : " + (float)vppAxis[1] + " : " + (float)vppAxis[2]
+	    		+ "\ngpsAxis: " + gpsAxis[0] + " : " + gpsAxis[1] + " : " + gpsAxis[2]
+	    		+ "\nMag[0]:" + accMagOrientation[0]*180/Math.PI + " [1]:" + accMagOrientation[1]*180/Math.PI + " [2]:" + accMagOrientation[2]*180/Math.PI
+	    		+ "\nGyr[0]:" + gyroOrientation[0]*180/Math.PI + " [1]:" + gyroOrientation[1]*180/Math.PI + " [2]:" + gyroOrientation[2]*180/Math.PI
+				+ "\nFus[0]:" + fusedOrientation[0]*180/Math.PI  + " [1]:" + fusedOrientation[1]*180/Math.PI + " [2]:" + fusedOrientation[2]*180/Math.PI);
+				*/
 	}
 	else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
 		magnitude_values = (float[]) event.values.clone();
 	}
-	if (magnitude_values != null && accelerometer_values != null) {
-		float[] Ro = new float[9];
-		SensorManager.getRotationMatrix(Ro, null, accelerometer_values, magnitude_values);
-		SensorManager.getOrientation(Ro, orientationValues);
-		//finetune values for ladscape mode
-		orientationValues[0] = orientationValues[0] + (float)Math.PI / 2;
-		orientationValues[1] = -1 * orientationValues[1];
-		orientationValues[2] = orientationValues[2] + (float)Math.PI / 2;
-		
-		azimuth = (int)(orientationValues[0] * 180 / Math.PI);
-		if(azimuth  < 0) {
-			azimuth = 360 + azimuth;
-		}
-		pitch = (int)(orientationValues[1] * 180 / Math.PI);
-		roll = (int)(orientationValues[2] * 180 / Math.PI);
-		/*
-        StringBuilder sensorInfo = new StringBuilder();
-        	sensorInfo.append("azimuth:" + azimuth + "\npitch:" + pitch + "\nroll:" + roll);     
-        TextView tvMsg = (TextView)findViewById(R.id.text_view);
-        tvMsg.setText(sensorInfo); 
-        */
+	else if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+		gyroFunction(event);
 	}
+}
+
+// calculates orientation angles from accelerometer and magnetometer output
+public void calculateAccMagOrientation() {
+	float[] rotationMatrix = new float[9];
+	if((accelerometer_values != null) && (magnitude_values != null)) {
+	    if(SensorManager.getRotationMatrix(rotationMatrix, null, accelerometer_values, magnitude_values)) {
+	        SensorManager.getOrientation(rotationMatrix, accMagOrientation);
+	    }
+	}
+}
+
+// This function is borrowed from the Android reference
+// at http://developer.android.com/reference/android/hardware/SensorEvent.html#values
+// It calculates a rotation vector from the gyroscope angular speed values.
+private void getRotationVectorFromGyro(float[] gyroValues,
+        float[] deltaRotationVector,
+        float timeFactor)
+{
+	float[] normValues = new float[3];
+	
+	// Calculate the angular speed of the sample
+	float omegaMagnitude =
+	(float)Math.sqrt(gyroValues[0] * gyroValues[0] +
+	gyroValues[1] * gyroValues[1] +
+	gyroValues[2] * gyroValues[2]);
+	
+	// Normalize the rotation vector if it's big enough to get the axis
+	if(omegaMagnitude > EPSILON) {
+	normValues[0] = gyroValues[0] / omegaMagnitude;
+	normValues[1] = gyroValues[1] / omegaMagnitude;
+	normValues[2] = gyroValues[2] / omegaMagnitude;
+	}
+	
+	// Integrate around this axis with the angular speed by the timestep
+	// in order to get a delta rotation from this sample over the timestep
+	// We will convert this axis-angle representation of the delta rotation
+	// into a quaternion before turning it into the rotation matrix.
+	float thetaOverTwo = omegaMagnitude * timeFactor;
+	float sinThetaOverTwo = (float)Math.sin(thetaOverTwo);
+	float cosThetaOverTwo = (float)Math.cos(thetaOverTwo);
+	deltaRotationVector[0] = sinThetaOverTwo * normValues[0];
+	deltaRotationVector[1] = sinThetaOverTwo * normValues[1];
+	deltaRotationVector[2] = sinThetaOverTwo * normValues[2];
+	deltaRotationVector[3] = cosThetaOverTwo;
+}
+
+// This function performs the integration of the gyroscope data.
+// It writes the gyroscope based orientation into gyroOrientation.
+public void gyroFunction(SensorEvent event) {
+    // don't start until first accelerometer/magnetometer orientation has been acquired
+    if (accMagOrientation == null)
+        return;
+ 
+    // waiting for gyroscope initialize done in calculateFusedOrientationTask
+    if(initState) {
+        return;
+    }
+ 
+    // copy the new gyro values into the gyro array
+    // convert the raw gyro data into a rotation vector
+    float[] deltaVector = new float[4];
+    if(timestamp != 0) {
+        final float dT = (event.timestamp - timestamp) * NS2S;
+    System.arraycopy(event.values, 0, gyro, 0, 3);
+    getRotationVectorFromGyro(gyro, deltaVector, dT / 2.0f);
+    }
+ 
+    // measurement done, save current time for next interval
+    timestamp = event.timestamp;
+ 
+    // convert rotation vector into rotation matrix
+    float[] deltaMatrix = new float[9];
+    SensorManager.getRotationMatrixFromVector(deltaMatrix, deltaVector);
+ 
+    // apply the new rotation interval on the gyroscope based rotation matrix
+    gyroMatrix = matrixMultiplication(gyroMatrix, deltaMatrix);
+ 
+    // get the gyroscope based orientation from the rotation matrix
+    SensorManager.getOrientation(gyroMatrix, gyroOrientation);
+}
+
+private float[] getRotationMatrixFromOrientation(float[] o) {
+    float[] xM = new float[9];
+    float[] yM = new float[9];
+    float[] zM = new float[9];
+ 
+    float sinX = (float)Math.sin(o[1]);
+    float cosX = (float)Math.cos(o[1]);
+    float sinY = (float)Math.sin(o[2]);
+    float cosY = (float)Math.cos(o[2]);
+    float sinZ = (float)Math.sin(o[0]);
+    float cosZ = (float)Math.cos(o[0]);
+ 
+    // rotation about x-axis (pitch)
+    xM[0] = 1.0f; xM[1] = 0.0f; xM[2] = 0.0f;
+    xM[3] = 0.0f; xM[4] = cosX; xM[5] = sinX;
+    xM[6] = 0.0f; xM[7] = -sinX; xM[8] = cosX;
+ 
+    // rotation about y-axis (roll)
+    yM[0] = cosY; yM[1] = 0.0f; yM[2] = sinY;
+    yM[3] = 0.0f; yM[4] = 1.0f; yM[5] = 0.0f;
+    yM[6] = -sinY; yM[7] = 0.0f; yM[8] = cosY;
+ 
+    // rotation about z-axis (azimuth)
+    zM[0] = cosZ; zM[1] = sinZ; zM[2] = 0.0f;
+    zM[3] = -sinZ; zM[4] = cosZ; zM[5] = 0.0f;
+    zM[6] = 0.0f; zM[7] = 0.0f; zM[8] = 1.0f;
+ 
+    // rotation order is y, x, z (roll, pitch, azimuth)
+    float[] resultMatrix = matrixMultiplication(xM, yM);
+    resultMatrix = matrixMultiplication(zM, resultMatrix);
+    return resultMatrix;
+}
+
+private float[] matrixMultiplication(float[] A, float[] B) {
+    float[] result = new float[9];
+ 
+    result[0] = A[0] * B[0] + A[1] * B[3] + A[2] * B[6];
+    result[1] = A[0] * B[1] + A[1] * B[4] + A[2] * B[7];
+    result[2] = A[0] * B[2] + A[1] * B[5] + A[2] * B[8];
+ 
+    result[3] = A[3] * B[0] + A[4] * B[3] + A[5] * B[6];
+    result[4] = A[3] * B[1] + A[4] * B[4] + A[5] * B[7];
+    result[5] = A[3] * B[2] + A[4] * B[5] + A[5] * B[8];
+ 
+    result[6] = A[6] * B[0] + A[7] * B[3] + A[8] * B[6];
+    result[7] = A[6] * B[1] + A[7] * B[4] + A[8] * B[7];
+    result[8] = A[6] * B[2] + A[7] * B[5] + A[8] * B[8];
+ 
+    return result;
 }
 
 @Override
@@ -895,9 +1035,25 @@ public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
 @Override
 public void onLocationChanged(Location location) {
-	// TODO Auto-generated method stub
+	// TODO Auto-generated method stub. On GPS location changed.
 	//Log.w("zxing", "onLocationChanged " + location.getLatitude() + " " + location.getLongitude());
 	lastLocation = location;
+	float[] results = new float[3];
+	Location.distanceBetween(centerLatitude, lastLocation.getLongitude(), lastLocation.getLatitude(), lastLocation.getLongitude(), results);
+	if( (int)results[1] == 0) {
+		//0 means bearing to north. Otherwise will be 180. Means bearing to south
+		gpsAxis[0] = results[0];
+	} else {
+		gpsAxis[0] = -results[0];
+	}
+	Location.distanceBetween(lastLocation.getLatitude(), centerLongitude, lastLocation.getLatitude(), lastLocation.getLongitude(), results);
+	if((int)results[1] == 89) {
+		//89 means bearing to east. Otherwise will be -89. Means bearing to west.
+		gpsAxis[1] = results[0];
+	} else {
+		gpsAxis[1] = -results[0];
+	}
+	gpsAxis[2] = (float)(150 - lastLocation.getAltitude());
 }
 
 @Override
@@ -917,4 +1073,69 @@ public void onProviderDisabled(String provider) {
 	// TODO Auto-generated method stub
 	Log.w("zxing", "onProviderDisabled");
 }
+//Fusion Sensor
+class calculateFusedOrientationTask extends TimerTask {
+    public void run() {
+    	//initial Gyroscope data
+    	if(initState) {
+            gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
+            System.arraycopy(accMagOrientation, 0, gyroOrientation, 0, 3);
+            initState = false;
+    	}
+    	
+        float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
+        
+        /*
+         * Fix for 179<--> -179transition problem:
+         * Check whether one of the two orientation angles (gyro or accMag) is negative while the other one is positive.
+         * If so, add 360(2 * math.PI) to the negative value, perform the sensor fusion, and remove the 360from the result
+         * if it is greater than 180 This stabilizes the output in positive-to-negative-transition cases.
+         */
+        
+        // azimuth
+        if (gyroOrientation[0] < -0.5 * Math.PI && accMagOrientation[0] > 0.0) {
+        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT * (gyroOrientation[0] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[0]);
+    		fusedOrientation[0] -= (fusedOrientation[0] > Math.PI) ? 2.0 * Math.PI : 0;
+        }
+        else if (accMagOrientation[0] < -0.5 * Math.PI && gyroOrientation[0] > 0.0) {
+        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT * gyroOrientation[0] + oneMinusCoeff * (accMagOrientation[0] + 2.0 * Math.PI));
+        	fusedOrientation[0] -= (fusedOrientation[0] > Math.PI)? 2.0 * Math.PI : 0;
+        }
+        else {
+        	fusedOrientation[0] = FILTER_COEFFICIENT * gyroOrientation[0] + oneMinusCoeff * accMagOrientation[0];
+        }
+        
+        // pitch
+        if (gyroOrientation[1] < -0.5 * Math.PI && accMagOrientation[1] > 0.0) {
+        	fusedOrientation[1] = (float) (FILTER_COEFFICIENT * (gyroOrientation[1] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[1]);
+    		fusedOrientation[1] -= (fusedOrientation[1] > Math.PI) ? 2.0 * Math.PI : 0;
+        }
+        else if (accMagOrientation[1] < -0.5 * Math.PI && gyroOrientation[1] > 0.0) {
+        	fusedOrientation[1] = (float) (FILTER_COEFFICIENT * gyroOrientation[1] + oneMinusCoeff * (accMagOrientation[1] + 2.0 * Math.PI));
+        	fusedOrientation[1] -= (fusedOrientation[1] > Math.PI)? 2.0 * Math.PI : 0;
+        }
+        else {
+        	fusedOrientation[1] = FILTER_COEFFICIENT * gyroOrientation[1] + oneMinusCoeff * accMagOrientation[1];
+        }
+        
+        // roll
+        if (gyroOrientation[2] < -0.5 * Math.PI && accMagOrientation[2] > 0.0) {
+        	fusedOrientation[2] = (float) (FILTER_COEFFICIENT * (gyroOrientation[2] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[2]);
+    		fusedOrientation[2] -= (fusedOrientation[2] > Math.PI) ? 2.0 * Math.PI : 0;
+        }
+        else if (accMagOrientation[2] < -0.5 * Math.PI && gyroOrientation[2] > 0.0) {
+        	fusedOrientation[2] = (float) (FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * (accMagOrientation[2] + 2.0 * Math.PI));
+        	fusedOrientation[2] -= (fusedOrientation[2] > Math.PI)? 2.0 * Math.PI : 0;
+        }
+        else {
+        	fusedOrientation[2] = FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * accMagOrientation[2];
+        }
+ 
+        // overwrite gyro matrix and orientation with fused orientation
+        // to comensate gyro drift
+        gyroMatrix = getRotationMatrixFromOrientation(fusedOrientation);
+        System.arraycopy(fusedOrientation, 0, gyroOrientation, 0, 3);
+    }
+}
+
 }
