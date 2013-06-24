@@ -60,7 +60,7 @@ public final class ViewfinderView extends View {
   private List<ResultPoint> possibleResultPoints;
   private List<ResultPoint> lastPossibleResultPoints;
   private Result lastResult;
-  private double qr_real_size = 17.65; //real QR code length.(cm)
+  private double qr_real_size = 12.2; //real QR code length.(cm)
 
   // This constructor is used when the class is built from an XML resource.
   public ViewfinderView(Context context, AttributeSet attrs) {
@@ -218,21 +218,19 @@ public final class ViewfinderView extends View {
 	  paint.setTextSize(30);
 	  if(lastResult != null) {
 		  ResultPoint[] points = lastResult.getResultPoints();
-		  if(points != null) {
-			  //calc 4nd point
-			  Rect frame = cameraManager.getFramingRect();
-			  if (frame == null) {
-				  return;
-			  }
-		      Rect previewFrame = cameraManager.getFramingRectInPreview();
-		      float scaleX = frame.width() / (float) previewFrame.width();
-		      float scaleY = frame.height() / (float) previewFrame.height();
-			  canvas.drawLine(points[0].getX()*scaleX, points[0].getY()*scaleY, points[1].getX()*scaleX, points[1].getY()*scaleY, paint);
-			  canvas.drawLine(points[1].getX()*scaleX, points[1].getY()*scaleY, points[2].getX()*scaleX, points[2].getY()*scaleY, paint);
-			  String locStr = "";
-			  locStr = "length = " + calcSasDistance();
-			  canvas.drawText(locStr, (points[0].getX() + points[2].getX()) / 2 *scaleX, (points[0].getY() + points[2].getY()) / 2 *scaleY, paint);
-			  }
+		  //calc 4nd point
+		  Rect frame = cameraManager.getFramingRect();
+		  if (frame == null) {
+			  return;
+		  }
+	      Rect previewFrame = cameraManager.getFramingRectInPreview();
+	      float scaleX = frame.width() / (float) previewFrame.width();
+	      float scaleY = frame.height() / (float) previewFrame.height();
+		  canvas.drawLine(points[0].getX()*scaleX, points[0].getY()*scaleY, points[1].getX()*scaleX, points[1].getY()*scaleY, paint);
+		  canvas.drawLine(points[1].getX()*scaleX, points[1].getY()*scaleY, points[2].getX()*scaleX, points[2].getY()*scaleY, paint);
+		  String locStr = "";
+		  locStr = "length = " + calcSasDistance();
+		  canvas.drawText(locStr, (points[0].getX() + points[2].getX()) / 2 *scaleX, (points[0].getY() + points[2].getY()) / 2 *scaleY, paint);
 		  }
 	  }
   
@@ -240,7 +238,7 @@ public final class ViewfinderView extends View {
    * Calculate SAS width. Will compare 2 distance and use longest.
    * @author bravesheng@gmail.com
    */
-  public double getSasSize() {
+  public double calcSasSize() {
 	  ResultPoint[] points = lastResult.getResultPoints();
 	  double dist1 = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));
 	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
@@ -252,7 +250,7 @@ public final class ViewfinderView extends View {
    * @author bravesheng@gmail.com
    */
   public double calcSasDistance() {
-	  double sas_pixel_length = getSasSize();
+	  double sas_pixel_length = calcSasSize();
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
 	  double angle_of_sas_size = angle_per_pixel * sas_pixel_length;

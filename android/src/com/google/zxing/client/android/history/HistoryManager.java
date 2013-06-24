@@ -63,10 +63,6 @@ public final class HistoryManager {
       DBHelper.GPS_LON,
       DBHelper.GPS_LAT,
       DBHelper.GPS_ALT,
-      DBHelper.AZIMUTH,
-      DBHelper.PITCH,
-      DBHelper.ROLL,
-      DBHelper.SAS_SIZE,
       DBHelper.TIMESTAMP_COL,
   };
 
@@ -105,12 +101,12 @@ public final class HistoryManager {
       db = helper.getReadableDatabase();
       cursor = db.query(DBHelper.TABLE_NAME, COLUMNS, null, null, null, null, DBHelper.TIMESTAMP_COL + " DESC");
       while (cursor.moveToNext()) {
-    	  float vpp_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3), cursor.getLong(11)};
-    	  float gps_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
-    	  int orientation[] = {cursor.getInt(7), cursor.getInt(8), cursor.getInt(9)};
-    	  long timestamp = cursor.getLong(10);
-    	  Result result = new Result(cursor.getString(0), null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
-    	  items.add(new HistoryItem(result, vpp_axis, gps_axis, orientation, timestamp));
+    	  String sasInfo = cursor.getString(0);
+    	  float vpp_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
+    	  double gps_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
+    	  long timestamp = cursor.getLong(7);
+    	  Result result = new Result(sasInfo, null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
+    	  items.add(new HistoryItem(result, sasInfo, vpp_axis, gps_axis, timestamp));
     	  }
       } finally {
     	  close(cursor, db);
@@ -126,12 +122,12 @@ public final class HistoryManager {
     	db = helper.getReadableDatabase();
     	cursor = db.query(DBHelper.TABLE_NAME, COLUMNS, null, null, null, null, DBHelper.TIMESTAMP_COL + " DESC");
     	cursor.move(number + 1);
-    	float vpp_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3), cursor.getLong(11)};
-    	float gps_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
-    	int orientation[] = {cursor.getInt(7), cursor.getInt(8), cursor.getInt(9)};
-    	long timestamp = cursor.getLong(11);
-    	Result result = new Result(cursor.getString(0), null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
-    	return new HistoryItem(result, vpp_axis, gps_axis, orientation, timestamp);
+    	String sasInfo = cursor.getString(0);
+    	float vpp_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
+    	double gps_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
+    	long timestamp = cursor.getLong(7);
+    	Result result = new Result(sasInfo, null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
+    	return new HistoryItem(result, sasInfo, vpp_axis, gps_axis, timestamp);
     	} finally {
     		close(cursor, db);
     		}
@@ -154,7 +150,7 @@ public final class HistoryManager {
     }
   }
 
-  public void addHistoryItem(double vppAxis[], float gpsAxis[], float orientation[], Result result, ResultHandler handler) {
+  public void addHistoryItem(double vppAxis[], float gpsAxis[], Result result, ResultHandler handler) {
 	  // Do not save this item to the history if the preference is turned off, or the contents are
 	  // considered secure.
 	  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
@@ -167,17 +163,14 @@ public final class HistoryManager {
 		  }
 	    ContentValues values = new ContentValues();
 	    //Vincent: We need change code to get new result and put data into database.
-	    values.put(DBHelper.SAS_INFO, result.getText());
+	    String sasInfo = result.getText();
+	    values.put(DBHelper.SAS_INFO, sasInfo);
 	    values.put(DBHelper.VPP_X, vppAxis[0]);
 	    values.put(DBHelper.VPP_Y, vppAxis[1]);
 	    values.put(DBHelper.VPP_Z, vppAxis[2]);
 	    values.put(DBHelper.GPS_LON, gpsAxis[0]);
 	    values.put(DBHelper.GPS_LAT, gpsAxis[1]);
 	    values.put(DBHelper.GPS_ALT, gpsAxis[2]);	
-	    values.put(DBHelper.AZIMUTH, orientation[0]);
-	    values.put(DBHelper.PITCH, orientation[1]);
-	    values.put(DBHelper.ROLL, orientation[2]);
-	    values.put(DBHelper.SAS_SIZE, vppAxis[3]);
 	    values.put(DBHelper.TIMESTAMP_COL, System.currentTimeMillis());
 	    
 	    SQLiteOpenHelper helper = new DBHelper(activity);
@@ -259,18 +252,15 @@ public final class HistoryManager {
       while (cursor.moveToNext()) {
 
         historyText.append('"').append(massageHistoryField(cursor.getString(0))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(1)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(2)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(3)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(4)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(5)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(6)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getInt(7)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getInt(8)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getInt(9)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getInt(10)))).append("\",");
+        historyText.append('"').append(massageHistoryField(cursor.getString(1))).append("\",");
+        historyText.append('"').append(massageHistoryField(cursor.getString(2))).append("\",");
+        historyText.append('"').append(massageHistoryField(cursor.getString(3))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getDouble(4)))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getDouble(5)))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getDouble(6)))).append("\",");
+
         // Add timestamp again, formatted
-        long timestamp = cursor.getLong(11);
+        long timestamp = cursor.getLong(7);
         historyText.append('"').append(massageHistoryField(
             EXPORT_DATE_TIME_FORMAT.format(new Date(timestamp)))).append("\"\r\n");
       }
