@@ -68,7 +68,7 @@ public final class HistoryActivity extends ListActivity {
       adapter.add(item);
     }
     if (adapter.isEmpty()) {
-      adapter.add(new HistoryItem(null, null, null, null, 0));
+      adapter.add(new HistoryItem(null, null, null, null, null, 0, 0));
     }
   }
 

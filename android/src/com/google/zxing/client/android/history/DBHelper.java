@@ -32,9 +32,12 @@ final class DBHelper extends SQLiteOpenHelper {
   static final String TABLE_NAME = "history";
   static final String ID_COL = "id";
   static final String SAS_INFO = "sas_info";
-  static final String VPP_X = "vpp_x";
-  static final String VPP_Y = "vpp_y";
-  static final String VPP_Z = "vpp_z";
+  static final String MAG_X = "mag_x";
+  static final String MAG_Y = "mag_y";
+  static final String MAG_Z = "mag_z";
+  static final String FUS_X = "fus_x";
+  static final String FUS_Y = "fus_y";
+  static final String FUS_Z = "fus_z";
   static final String GPS_LON = "gps_lon";
   static final String GPS_LAT = "gps_lat";
   static final String GPS_ALT = "gps_alt";
@@ -54,9 +57,12 @@ final class DBHelper extends SQLiteOpenHelper {
             "CREATE TABLE " + TABLE_NAME + " (" +
             ID_COL + " INTEGER PRIMARY KEY, " +
             SAS_INFO + " TEXT, " +
-            VPP_X + " REAL, " +
-            VPP_Y + " REAL, " +
-            VPP_Z + " REAL, " +
+            MAG_X + " REAL, " +
+            MAG_Y + " REAL, " +
+            MAG_Z + " REAL, " +
+            FUS_X + " REAL, " +
+            FUS_Y + " REAL, " +
+            FUS_Z + " REAL, " +
             GPS_LON + " REAL, " +
             GPS_LAT + " REAL, " +
             GPS_ALT + " REAL, " +

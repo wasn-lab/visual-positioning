@@ -22,16 +22,20 @@ import com.google.zxing.Result;
 
 public final class HistoryItem {
   private final Result result;	
-  private final float vpp[];
+  private final float mag[];
+  private final float fus[];
   private final float gps[];
   private final int orientation[];
+  private final float sasSize;
   private final long timestamp;
   
-  HistoryItem(Result result, float vpp[], float gps[], int orientation[], long timestamp) {
+  HistoryItem(Result result, float mag[], float fus[], float gps[], int orientation[], float sasSize, long timestamp) {
 	  this.result = result;
-	  this.vpp = vpp;
+	  this.mag = mag;
+	  this.fus = fus;
 	  this.gps = gps;
 	  this.orientation = orientation;
+	  this.sasSize = sasSize;
 	  this.timestamp = timestamp;
   }
   
@@ -46,7 +50,8 @@ public final class HistoryItem {
   
   public String getDisplayAndDetails() {
 	  String details;
-	  details = "VPP: " + vpp[0] + " : " + vpp[1] + " : " + vpp[2]
+	  details = "MAG: " + mag[0] + " : " + mag[1] + " : " + mag[2]
+			  +"\nFUS: " + fus[0] + " : " + fus[1] + " : " + fus[2]
 			  +"\nGPS: " + gps[0] + " : " + gps[1] + " : " + gps[2];
 	  return details;
   }
