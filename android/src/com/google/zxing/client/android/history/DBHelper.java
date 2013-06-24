@@ -38,6 +38,10 @@ final class DBHelper extends SQLiteOpenHelper {
   static final String GPS_LON = "gps_lon";
   static final String GPS_LAT = "gps_lat";
   static final String GPS_ALT = "gps_alt";
+  static final String AZIMUTH = "azimuth";
+  static final String PITCH = "pitch";
+  static final String ROLL = "roll";
+  static final String SAS_SIZE = "sas_size";
   static final String TIMESTAMP_COL = "timestamp";
 
   DBHelper(Context context) {
@@ -56,6 +60,10 @@ final class DBHelper extends SQLiteOpenHelper {
             GPS_LON + " REAL, " +
             GPS_LAT + " REAL, " +
             GPS_ALT + " REAL, " +
+            AZIMUTH + " INTEGER," +
+            PITCH + " INTEGER," +
+            ROLL + " INTEGER," +
+            SAS_SIZE + " REAL," +
             TIMESTAMP_COL + " INTEGER);");
   }
 
