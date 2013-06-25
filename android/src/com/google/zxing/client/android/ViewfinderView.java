@@ -276,7 +276,8 @@ public final class ViewfinderView extends View {
 	  float rad_y = (float) (((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel);
 	  float sasX = (float) (sasDistance * Math.sin(rad_x));
 	  float sasY = (float) (sasDistance * Math.sin(rad_y));
-	  float sasZ = (float) (sasDistance * (Math.cos(rad_x) + Math.cos(rad_y))/2);
+	  //recalculate real Z
+	  float sasZ = (float)Math.sqrt(sasX * sasX + sasDistance * sasDistance);
 	  float sasAxis[] = {sasX, sasY, sasZ};
 	  return sasAxis;
   }
