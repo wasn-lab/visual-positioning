@@ -111,7 +111,7 @@ public final class HistoryManager {
     	  float mag_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
     	  float fus_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
     	  float gps_axis[] = {cursor.getFloat(7), cursor.getFloat(8), cursor.getFloat(9)};
-    	  int orientation[] = {cursor.getInt(10), cursor.getInt(11), cursor.getInt(12)};
+    	  float orientation[] = {cursor.getFloat(10), cursor.getFloat(11), cursor.getFloat(12)};
     	  float sasSize = cursor.getFloat(13);
     	  long timestamp = cursor.getLong(14);
     	  Result result = new Result(cursor.getString(0), null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
@@ -134,7 +134,7 @@ public final class HistoryManager {
   	  float mag_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
   	  float fus_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
   	  float gps_axis[] = {cursor.getFloat(7), cursor.getFloat(8), cursor.getFloat(9)};
-  	  int orientation[] = {cursor.getInt(10), cursor.getInt(11), cursor.getInt(12)};
+  	  float orientation[] = {cursor.getFloat(10), cursor.getFloat(11), cursor.getFloat(12)};
   	  float sasSize = cursor.getFloat(13);
   	  long timestamp = cursor.getLong(14);
     	Result result = new Result(cursor.getString(0), null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
@@ -265,8 +265,24 @@ public final class HistoryManager {
                         DBHelper.TIMESTAMP_COL + " DESC");
 
       StringBuilder historyText = new StringBuilder(1000);
+      //add title
+      historyText.append('"').append(massageHistoryField("sas_info")).append("\",");
+      historyText.append('"').append(massageHistoryField("mag_x")).append("\",");
+      historyText.append('"').append(massageHistoryField("mag_y")).append("\",");
+      historyText.append('"').append(massageHistoryField("mag_z")).append("\",");
+      historyText.append('"').append(massageHistoryField("fus_x")).append("\",");
+      historyText.append('"').append(massageHistoryField("fus_y")).append("\",");
+      historyText.append('"').append(massageHistoryField("fus_z")).append("\",");
+      historyText.append('"').append(massageHistoryField("gps_lon")).append("\",");
+      historyText.append('"').append(massageHistoryField("gps_lat")).append("\",");
+      historyText.append('"').append(massageHistoryField("gps_alt")).append("\",");
+      historyText.append('"').append(massageHistoryField("azimuth")).append("\",");
+      historyText.append('"').append(massageHistoryField("pitch")).append("\",");
+      historyText.append('"').append(massageHistoryField("roll")).append("\",");
+      historyText.append('"').append(massageHistoryField("sas_size")).append("\",");
+      historyText.append('"').append(massageHistoryField("timestamp")).append("\"\r\n");
+      //save data into csv file
       while (cursor.moveToNext()) {
-
         historyText.append('"').append(massageHistoryField(cursor.getString(0))).append("\",");
         historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(1)))).append("\",");
         historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(2)))).append("\",");
@@ -277,9 +293,9 @@ public final class HistoryManager {
         historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(7)))).append("\",");
         historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(8)))).append("\",");
         historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(9)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getInt(10)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getInt(11)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getInt(12)))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(10)))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(11)))).append("\",");
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(12)))).append("\",");
         historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(13)))).append("\",");
         // Add timestamp again, formatted
         long timestamp = cursor.getLong(14);

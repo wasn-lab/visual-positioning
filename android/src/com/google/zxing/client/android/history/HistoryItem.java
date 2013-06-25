@@ -25,11 +25,11 @@ public final class HistoryItem {
   private final float mag[];
   private final float fus[];
   private final float gps[];
-  private final int orientation[];
+  private final float orientation[];
   private final float sasSize;
   private final long timestamp;
   
-  HistoryItem(Result result, float mag[], float fus[], float gps[], int orientation[], float sasSize, long timestamp) {
+  HistoryItem(Result result, float mag[], float fus[], float gps[], float orientation[], float sasSize, long timestamp) {
 	  this.result = result;
 	  this.mag = mag;
 	  this.fus = fus;
