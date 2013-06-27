@@ -44,7 +44,7 @@ final class DBHelper extends SQLiteOpenHelper {
   static final String AZIMUTH = "azimuth";
   static final String PITCH = "pitch";
   static final String ROLL = "roll";
-  static final String SAS_SIZE = "sas_size";
+  static final String DISTANCE = "distance";
   static final String TIMESTAMP_COL = "timestamp";
 
   DBHelper(Context context) {
@@ -69,7 +69,7 @@ final class DBHelper extends SQLiteOpenHelper {
             AZIMUTH + " INTEGER," +
             PITCH + " INTEGER," +
             ROLL + " INTEGER," +
-            SAS_SIZE + " REAL," +
+            DISTANCE + " REAL," +
             TIMESTAMP_COL + " INTEGER);");
   }
 

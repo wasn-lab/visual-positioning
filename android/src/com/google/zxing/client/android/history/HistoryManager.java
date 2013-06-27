@@ -69,7 +69,7 @@ public final class HistoryManager {
       DBHelper.AZIMUTH,
       DBHelper.PITCH,
       DBHelper.ROLL,
-      DBHelper.SAS_SIZE,
+      DBHelper.DISTANCE,
       DBHelper.TIMESTAMP_COL,
   };
 
@@ -112,10 +112,10 @@ public final class HistoryManager {
     	  float fus_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
     	  float gps_axis[] = {cursor.getFloat(7), cursor.getFloat(8), cursor.getFloat(9)};
     	  float orientation[] = {cursor.getFloat(10), cursor.getFloat(11), cursor.getFloat(12)};
-    	  float sasSize = cursor.getFloat(13);
+    	  float distance = cursor.getFloat(13);
     	  long timestamp = cursor.getLong(14);
     	  Result result = new Result(cursor.getString(0), null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
-    	  items.add(new HistoryItem(result, mag_axis, fus_axis, gps_axis, orientation, sasSize, timestamp));
+    	  items.add(new HistoryItem(result, mag_axis, fus_axis, gps_axis, orientation, distance, timestamp));
     	  }
       } finally {
     	  close(cursor, db);
@@ -135,10 +135,10 @@ public final class HistoryManager {
   	  float fus_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
   	  float gps_axis[] = {cursor.getFloat(7), cursor.getFloat(8), cursor.getFloat(9)};
   	  float orientation[] = {cursor.getFloat(10), cursor.getFloat(11), cursor.getFloat(12)};
-  	  float sasSize = cursor.getFloat(13);
+  	  float distance = cursor.getFloat(13);
   	  long timestamp = cursor.getLong(14);
     	Result result = new Result(cursor.getString(0), null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
-    	return new HistoryItem(result, mag_axis, fus_axis, gps_axis, orientation, sasSize, timestamp);
+    	return new HistoryItem(result, mag_axis, fus_axis, gps_axis, orientation, distance, timestamp);
     	} finally {
     		close(cursor, db);
     		}
@@ -161,7 +161,7 @@ public final class HistoryManager {
     }
   }
 
-  public void addHistoryItem(double magAxis[], double fusAxis[], float gpsAxis[], float orientation[], double sasSize, Result result, ResultHandler handler) {
+  public void addHistoryItem(double magAxis[], double fusAxis[], float gpsAxis[], float orientation[], double distance, Result result, ResultHandler handler) {
 	  // Do not save this item to the history if the preference is turned off, or the contents are
 	  // considered secure.
 	  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
@@ -187,7 +187,7 @@ public final class HistoryManager {
 	    values.put(DBHelper.AZIMUTH, orientation[0]);
 	    values.put(DBHelper.PITCH, orientation[1]);
 	    values.put(DBHelper.ROLL, orientation[2]);
-	    values.put(DBHelper.SAS_SIZE, sasSize);
+	    values.put(DBHelper.DISTANCE, distance);
 	    values.put(DBHelper.TIMESTAMP_COL, System.currentTimeMillis());
 	    SQLiteOpenHelper helper = new DBHelper(activity);
 	    SQLiteDatabase db = null;
@@ -279,7 +279,7 @@ public final class HistoryManager {
       historyText.append('"').append(massageHistoryField("azimuth")).append("\",");
       historyText.append('"').append(massageHistoryField("pitch")).append("\",");
       historyText.append('"').append(massageHistoryField("roll")).append("\",");
-      historyText.append('"').append(massageHistoryField("sas_size")).append("\",");
+      historyText.append('"').append(massageHistoryField("distance")).append("\",");
       historyText.append('"').append(massageHistoryField("timestamp")).append("\"\r\n");
       //save data into csv file
       while (cursor.moveToNext()) {
