@@ -154,7 +154,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   //for fusion
 	public static final int TIME_CONSTANT = 500; //original:30
 	public static final float FILTER_COEFFICIENT = 0.50f;
-	public static final float FILTER_COEFFICIENT_AZIMUTH = 0.99f;
+	public static final float FILTER_COEFFICIENT_AZIMUTH = 0.98f;
 	private Timer fuseTimer = new Timer();
   
   //for GPS
@@ -165,7 +165,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 0; // no limit  
   // The minimum time between updates in milliseconds
   private static final long MIN_TIME_BW_UPDATES = 1000; // 1 second
-
+  private float finalDistance = 0;
 
   ViewfinderView getViewfinderView() {
     return viewfinderView;
@@ -492,7 +492,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     boolean fromLiveScan = barcode != null;
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
-    	historyManager.addHistoryItem(getVPP(accMagOrientation).clone(), getVPP(fusedOrientation).clone(), gpsAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
+    	historyManager.addHistoryItem(getVPP(accMagOrientation).clone(), getVPP(fusedOrientation).clone(), gpsAxis, accMagOrientation, finalDistance, rawResult, resultHandler);
     	// Then not from history, so beep/vibrate and we have an image to draw on
     	beepManager.playBeepSoundAndVibrate();
     	drawResultPoints(barcode, scaleFactor, rawResult);
@@ -824,17 +824,36 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     resetStatusView();
   }
 
+  private float[] rotateToLandscape(float[] beforeRotate) {
+	  float[] finalOrientation = new float[3];
+	  
+	  	finalOrientation[0] = beforeRotate[1];						//horizontal balance degree. clockwise is positive
+	  	if(beforeRotate[0] < Math.PI / 2) {
+	  		finalOrientation[1] = (beforeRotate[0] + (float)(Math.PI * 0.5)); //compass degree. clockwise is positive
+	  	}
+	  	else {
+	  		finalOrientation[1] = beforeRotate[0] - (float)(Math.PI * 1.5); //compass degree. clockwise is positive
+	  	}
+	  	if(beforeRotate[0] < Math.PI / 2) {
+	  		finalOrientation[2] = (beforeRotate[2] + (float)(Math.PI * 0.5)); //vertical degree. clockwise is positive
+	  	}
+	  	else {
+	  		finalOrientation[2] = beforeRotate[2] - (float)(Math.PI * 1.5); //vertical degree. clockwise is positive
+	  	}
+	  	return finalOrientation;
+  }
+  
   private double[] getVPP(float[] sourceOrientation) {
 	  //fine tune values for landscape mode
-	  	float[] beforeRotate = sourceOrientation.clone();
-	  	float[] finalOrientation = new float[3];
-	  	finalOrientation[0] = beforeRotate[1];						//horizontal balance degree. clockwise is positive
-	  	finalOrientation[1] = (beforeRotate[0] + (float)Math.PI / 2); //compass degree. clockwise is positive
-	  	finalOrientation[2] = (beforeRotate[2] + (float)Math.PI / 2); //vertical degree. clockwise is positive
+	  	float[] finalOrientation = rotateToLandscape(sourceOrientation.clone());	  	
 	  	
 	    if(lastResult != null) //Do rotate coordinate to match world coordinate system
 	    {	
 	    	float sasPosition[] = viewfinderView.sasRelativePosition();
+		  	//校正影像傾斜，先寫固定假設SAS的方向是正西方，也就是工五館頂樓的方向
+		  	float radDiff = finalOrientation[1] + (float)Math.PI/2;  //傾斜角
+		  	sasPosition[2] = sasPosition[2] / (float)Math.cos(radDiff);
+		  	finalDistance = sasPosition[2];
 	    	//Rotate Y horizontal balance degree
 	    	double x1 = sasPosition[0] * Math.cos(finalOrientation[1]) + sasPosition[2] * Math.sin(finalOrientation[1]);
 	    	double y1 = sasPosition[1];
@@ -866,19 +885,18 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     resultView.setVisibility(View.GONE);
     //Change to position for debug
     float tmpOrientation[] = new float[3];
-    tmpOrientation[0] = accMagOrientation[1];						//horizontal balance degree. clockwise is positive
-    tmpOrientation[1] = (accMagOrientation[0] + (float)Math.PI / 2); //compass degree. clockwise is positive
-    tmpOrientation[2] = (accMagOrientation[2] + (float)Math.PI / 2); //vertical degree. clockwise is positive
+    
+    
+  	//rotate to landscape
+    tmpOrientation = rotateToLandscape(accMagOrientation.clone());
+
     String print = String.format("vppAxis::%8.2f  %8.2f  %8.2f", vppAxis[0], vppAxis[1], vppAxis[2])
     		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
     		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
-    tmpOrientation[0] = gyroOrientation[1];						//horizontal balance degree. clockwise is positive
-    tmpOrientation[1] = (gyroOrientation[0] + (float)Math.PI / 2); //compass degree. clockwise is positive
-    tmpOrientation[2] = (gyroOrientation[2] + (float)Math.PI / 2); //vertical degree. clockwise is positive
+  	//rotate to landscape
+    tmpOrientation = rotateToLandscape(gyroOrientation.clone());
     print = print + String.format("\nGYR:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
-    tmpOrientation[0] = fusedOrientation[1];						//horizontal balance degree. clockwise is positive
-    tmpOrientation[1] = (fusedOrientation[0] + (float)Math.PI / 2); //compass degree. clockwise is positive
-    tmpOrientation[2] = (fusedOrientation[2] + (float)Math.PI / 2); //vertical degree. clockwise is positive    
+    tmpOrientation = rotateToLandscape(fusedOrientation.clone());    
     print = print + String.format("\nFUS:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
     statusView.setText(print);  		
     statusView.setVisibility(View.VISIBLE);
@@ -903,6 +921,10 @@ public void onSensorChanged(SensorEvent event) {
 	}
 	else if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
 		gyroFunction(event);
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        if (prefs.getBoolean(PreferencesActivity.KEY_BULK_MODE, true)) {
+        	resetStatusView();
+        }
 	}
 }
 
@@ -912,7 +934,7 @@ public void calculateAccMagOrientation() {
 	if((accelerometer_values != null) && (magnitude_values != null)) {
 	    if(SensorManager.getRotationMatrix(rotationMatrix, null, accelerometer_values, magnitude_values)) {
 	        SensorManager.getOrientation(rotationMatrix, accMagOrientation);
-	        //resetStatusView();
+	        
 	    }
 	}
 }
@@ -1090,6 +1112,7 @@ class calculateFusedOrientationTask extends TimerTask {
     	if(initState) {
             gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
             System.arraycopy(accMagOrientation, 0, gyroOrientation, 0, 3);
+            gyroOrientation[0] = (float) -Math.PI;
             initState = false;
     	}
         float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
@@ -1102,15 +1125,25 @@ class calculateFusedOrientationTask extends TimerTask {
          */
         
         // azimuth
-        fusedOrientation[0] = fusedOrientation[0] + FILTER_COEFFICIENT_AZIMUTH * (gyroOrientation[0] - fusedOrientation[0]) + oneMinusCoeffAzimuth * (accMagOrientation[0] - fusedOrientation[0]);
+        //fusedOrientation[0] = (float) -Math.PI;
         
+        if (gyroOrientation[0] < -0.5 * Math.PI && accMagOrientation[0] > 0.0) {
+        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT_AZIMUTH * (gyroOrientation[0] + 2.0 * Math.PI) + oneMinusCoeffAzimuth * accMagOrientation[0]);
+    		fusedOrientation[0] -= (fusedOrientation[0] > Math.PI) ? 2.0 * Math.PI : 0;
+        }
+        else if (accMagOrientation[0] < -0.5 * Math.PI && gyroOrientation[0] > 0.0) {
+        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT_AZIMUTH * gyroOrientation[0] + oneMinusCoeffAzimuth * (accMagOrientation[0] + 2.0 * Math.PI));
+        	fusedOrientation[0] -= (fusedOrientation[0] > Math.PI)? 2.0 * Math.PI : 0;
+        }
+        else {
+        	fusedOrientation[0] = FILTER_COEFFICIENT_AZIMUTH * gyroOrientation[0] + oneMinusCoeffAzimuth * accMagOrientation[0];
+        }
+
         // pitch
         fusedOrientation[1] = accMagOrientation[1];
-        //fusedOrientation[1] = fusedOrientation[1] + FILTER_COEFFICIENT * (gyroOrientation[1] - fusedOrientation[1]) + oneMinusCoeff * (accMagOrientation[1] - fusedOrientation[1]);
         
         // roll
         fusedOrientation[2] = accMagOrientation[2];
-        //fusedOrientation[2] = fusedOrientation[2] + FILTER_COEFFICIENT * (gyroOrientation[2] - fusedOrientation[2]) + oneMinusCoeff * (accMagOrientation[2] - fusedOrientation[2]);
 
  
         // overwrite gyro matrix and orientation with fused orientation
