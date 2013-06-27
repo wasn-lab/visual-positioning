@@ -230,7 +230,7 @@ public final class ViewfinderView extends View {
 			  canvas.drawLine(points[0].getX()*scaleX, points[0].getY()*scaleY, points[1].getX()*scaleX, points[1].getY()*scaleY, paint);
 			  canvas.drawLine(points[1].getX()*scaleX, points[1].getY()*scaleY, points[2].getX()*scaleX, points[2].getY()*scaleY, paint);
 			  String locStr = "";
-			  locStr = "length = " + calcSasDistance();
+			  locStr = "length = " + calcSasCenterDistance();
 			  canvas.drawText(locStr, (points[0].getX() + points[2].getX()) / 2 *scaleX, (points[0].getY() + points[2].getY()) / 2 *scaleY, paint);
 			  }
 		  }
@@ -238,20 +238,25 @@ public final class ViewfinderView extends View {
   
   /**
    * Calculate SAS width. Will compare 2 distance and use longest.
+   * Choose longest length as measurement target.
    * @author bravesheng@gmail.com
    */
   public double getSasSize() {
 	  ResultPoint[] points = lastResult.getResultPoints();
 	  double dist1 = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));
 	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
-	  return (dist1 + dist2) / 2;
+	  if(dist1 > dist2) {
+		  return dist1;
+	  } else {
+		  return dist2;
+	  }
   }
   
   /**
    * Calculate distance between SAS and camera.
    * @author bravesheng@gmail.com
    */
-  public double calcSasDistance() {
+  public double calcSasCenterDistance() {
 	  double sas_pixel_length = getSasSize();
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
@@ -263,20 +268,21 @@ public final class ViewfinderView extends View {
   
   /**
    * Calculate relative position between camera and SAS.
-   * Center of the coordinate system is camera. Horizontal axis = sasX, Distance axis = sasY, Vertical axis = sasZ 
+   * Center of the coordinate system is camera. Horizontal axis = sasX, Vertical axis = sasY , Distance axis = sasZ
    * @author bravesheng@gmail.com
    */
   public float[] sasRelativePosition() {
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
-	  double sasDistance = calcSasDistance();
+	  double sasDistance = calcSasCenterDistance();
 	  //determin center of SAS
 	  ResultPoint[] points = lastResult.getResultPoints();
 	  float rad_x = (float) ((((points[0].getX() + points[2].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel);
 	  float rad_y = (float) (((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel);
 	  float sasX = (float) (sasDistance * Math.sin(rad_x));
-	  float sasZ = (float) (sasDistance * Math.sin(rad_y));
-	  float sasY = (float) (sasDistance * (Math.cos(rad_x) + Math.cos(rad_y))/2);
+	  float sasY = (float) (sasDistance * Math.sin(rad_y));
+	  //recalculate real Z
+	  float sasZ = (float)Math.sqrt(sasX * sasX + sasDistance * sasDistance);
 	  float sasAxis[] = {sasX, sasY, sasZ};
 	  return sasAxis;
   }
