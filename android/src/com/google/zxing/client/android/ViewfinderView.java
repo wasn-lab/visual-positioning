@@ -271,19 +271,19 @@ public final class ViewfinderView extends View {
    * Center of the coordinate system is camera. Horizontal axis = sasX, Vertical axis = sasY , Distance axis = sasZ
    * @author bravesheng@gmail.com
    */
-  public float[] sasRelativePosition() {
+  public double[] sasRelativePosition() {
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
 	  double sasDistance = calcSasCenterDistance();
 	  //determin center of SAS
 	  ResultPoint[] points = lastResult.getResultPoints();
-	  float rad_x = (float) ((((points[0].getX() + points[2].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel);
-	  float rad_y = (float) (((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel);
-	  float sasX = (float) (sasDistance * Math.sin(rad_x));
-	  float sasY = (float) (sasDistance * Math.sin(rad_y));
+	  double rad_x = (((points[0].getX() + points[2].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel;
+	  double rad_y = ((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel;
+	  double sasX = sasDistance * Math.sin(rad_x);
+	  double sasY = sasDistance * Math.sin(rad_y);
 	  //recalculate real Z
-	  float sasZ = (float)Math.sqrt(sasX * sasX + sasDistance * sasDistance);
-	  float sasAxis[] = {sasX, sasY, sasZ};
+	  double sasZ = Math.sqrt(sasX * sasX + sasDistance * sasDistance);
+	  double sasAxis[] = {sasX, sasY, sasZ};
 	  return sasAxis;
   }
 }

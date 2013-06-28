@@ -69,6 +69,7 @@ import java.text.DateFormat;
 import java.util.Collection;
 import java.util.Date;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
@@ -87,6 +88,7 @@ import android.hardware.SensorManager;
  * @author dswitkin@google.com (Daniel Switkin)
  * @author Sean Owen
  */
+
 public final class CaptureActivity extends Activity implements SurfaceHolder.Callback, SensorEventListener, LocationListener {
 
   private static final String TAG = CaptureActivity.class.getSimpleName();
@@ -166,6 +168,14 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   // The minimum time between updates in milliseconds
   private static final long MIN_TIME_BW_UPDATES = 1000; // 1 second
   private float finalDistance = 0;
+  
+  //for correct degree error
+  double sasAzimuth = -Math.PI / 2;
+  class positionData {
+	  public float[] orientation;
+	  public float[] sasPosition;
+  }
+  private List<positionData> positionItems;
 
   ViewfinderView getViewfinderView() {
     return viewfinderView;
@@ -492,6 +502,16 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     boolean fromLiveScan = barcode != null;
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
+    	if(positionItems.size() < 2) {
+    		//collect 2 point in the same place.
+    		positionData newData = new positionData();
+        	newData.orientation = fusedOrientation;
+        	newData.sasPosition = viewfinderView.sasRelativePosition();
+        	positionItems.add(newData);
+    	} else {
+    		//start calculate optimize angle value
+    		calcBestVps();
+    	}
     	historyManager.addHistoryItem(getVPP(accMagOrientation).clone(), getVPP(fusedOrientation).clone(), gpsAxis, accMagOrientation, finalDistance, rawResult, resultHandler);
     	// Then not from history, so beep/vibrate and we have an image to draw on
     	beepManager.playBeepSoundAndVibrate();
@@ -843,6 +863,23 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
 	  	return finalOrientation;
   }
   
+/*
+class positionData {
+	  public float[] orientation;
+	  public float[] sasPosition;
+  }
+private List<positionData> positionItems;
+  	  	//校正影像傾斜，先寫固定假設SAS的方向是正西方，也就是工五館頂樓的方向
+	  	double radDiff = finalOrientation[1] - sasAzimuth;  //傾斜角
+	  	sasPosition[2] = sasPosition[2] / (float)Math.cos(radDiff);
+	  	finalDistance = sasPosition[2];
+ */
+  private double[] calcBestVps() {
+	  positionData data1 = positionItems.get(0);
+	  
+	  double distance1 = data1.orientation[1] - sasAzimuth;
+}
+  
   private double[] getVPP(float[] sourceOrientation) {
 	  //fine tune values for landscape mode
 	  	float[] finalOrientation = rotateToLandscape(sourceOrientation.clone());	  	
@@ -850,10 +887,6 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
 	    if(lastResult != null) //Do rotate coordinate to match world coordinate system
 	    {	
 	    	float sasPosition[] = viewfinderView.sasRelativePosition();
-		  	//校正影像傾斜，先寫固定假設SAS的方向是正西方，也就是工五館頂樓的方向
-		  	float radDiff = finalOrientation[1] + (float)Math.PI/2;  //傾斜角
-		  	sasPosition[2] = sasPosition[2] / (float)Math.cos(radDiff);
-		  	finalDistance = sasPosition[2];
 	    	//Rotate Y horizontal balance degree
 	    	double x1 = sasPosition[0] * Math.cos(finalOrientation[1]) + sasPosition[2] * Math.sin(finalOrientation[1]);
 	    	double y1 = sasPosition[1];
