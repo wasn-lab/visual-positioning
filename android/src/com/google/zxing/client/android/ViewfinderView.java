@@ -213,9 +213,8 @@ public final class ViewfinderView extends View {
    * @author bravesheng@gmail.com
    */
   private void showLocationInfo(Canvas canvas) {
-	  paint.setARGB(255, 255, 255, 0);
-	  paint.setStrokeWidth(5);
-	  paint.setTextSize(30);
+	  paint.setStrokeWidth(8);
+	  paint.setTextSize(40);
 	  if(lastResult != null) {
 		  ResultPoint[] points = lastResult.getResultPoints();
 		  if(points != null) {
@@ -227,11 +226,17 @@ public final class ViewfinderView extends View {
 		      Rect previewFrame = cameraManager.getFramingRectInPreview();
 		      float scaleX = frame.width() / (float) previewFrame.width();
 		      float scaleY = frame.height() / (float) previewFrame.height();
+		      //point[0]->point[1] = vertical
+		      //point[1]->point[2] = horizontal
+		      paint.setARGB(255, 0, 0, 255); //blue will calculate as distance in current version
 			  canvas.drawLine(points[0].getX()*scaleX, points[0].getY()*scaleY, points[1].getX()*scaleX, points[1].getY()*scaleY, paint);
+			  paint.setARGB(255, 0, 255, 0); //green
 			  canvas.drawLine(points[1].getX()*scaleX, points[1].getY()*scaleY, points[2].getX()*scaleX, points[2].getY()*scaleY, paint);
-			  String locStr = "";
-			  locStr = "length = " + calcSasCenterDistance();
-			  canvas.drawText(locStr, (points[0].getX() + points[2].getX()) / 2 *scaleX, (points[0].getY() + points[2].getY()) / 2 *scaleY, paint);
+			  double sasPosition[] = sasRelativePosition();
+			  paint.setARGB(255, 255, 255, 255);
+			  paint.setShadowLayer((float)Math.PI, 2, 2, 0xFF000000);
+			  String locStr = String.format(" S1=%f : S2=%f : L=%f", getSasSize(), getSasSize2(), sasPosition[2]);	//the real distance
+			  canvas.drawText(locStr, 30, 40, paint);
 			  }
 		  }
 	  }
@@ -245,11 +250,18 @@ public final class ViewfinderView extends View {
 	  ResultPoint[] points = lastResult.getResultPoints();
 	  double dist1 = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));
 	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
-	  if(dist1 > dist2) {
-		  return dist1;
-	  } else {
-		  return dist2;
-	  }
+	  
+	  return dist1; //according to test. points[0] -> point1[1] = horizontal for qrcode
+	  //return dist2;
+  }
+  
+  
+  public double getSasSize2() {
+	  ResultPoint[] points = lastResult.getResultPoints();
+	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
+	  
+	  return dist2; //according to test. points[0] -> point1[1] = horizontal for qrcode
+	  //return dist2;
   }
   
   /**
@@ -261,9 +273,10 @@ public final class ViewfinderView extends View {
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
 	  double angle_of_sas_size = angle_per_pixel * sas_pixel_length;
-	  //real_distance = tan((pi - angle_of_sas_size) / 2) x (qr_real_distance / 2) 
-	  double real_distance = Math.tan((Math.PI - angle_of_sas_size) / 2) * (qr_real_size / 2);
-	  return real_distance;
+	  //center_distance = tan((pi - angle_of_sas_size) / 2) x (qr_real_distance / 2) 
+	  //this distance is only for center of screen. Will calculate real distance in sasRelativePosition
+	  double center_distance = Math.tan((Math.PI - angle_of_sas_size) / 2) * (qr_real_size / 2);
+	  return center_distance;
   }
   
   /**
@@ -282,7 +295,7 @@ public final class ViewfinderView extends View {
 	  double sasX = sasDistance * Math.sin(rad_x);
 	  double sasY = sasDistance * Math.sin(rad_y);
 	  //recalculate real Z
-	  double sasZ = Math.sqrt(sasX * sasX + sasDistance * sasDistance);
+	  double sasZ = Math.sqrt(sasX * sasX + sasY * sasY + sasDistance * sasDistance);
 	  double sasAxis[] = {sasX, sasY, sasZ};
 	  return sasAxis;
   }

@@ -66,6 +66,7 @@ import android.widget.TextView;
 
 import java.io.IOException;
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.EnumSet;
@@ -79,6 +80,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import com.musicg.math.statistics.StandardDeviation;
 
 /**
  * This activity opens the camera and does the actual scanning on a background thread. It draws a
@@ -138,7 +140,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private float[] accMagOrientation = new float[3];
   // final orientation angles from sensor fusion
   private float[] fusedOrientation = new float[3];
-  private double[] vppAxis = new double[3];
+  private double[] vpsAxis = new double[3];
   private float[] gpsAxis = new float[3]; 
   public static final float EPSILON = 0.000000001f;
   private static final float NS2S = 1.0f / 1000000000.0f;
@@ -154,7 +156,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private float[] gyroOrientation = new float[3];
   
   //for fusion
-	public static final int TIME_CONSTANT = 500; //original:30
+	public static final int TIME_CONSTANT = 300; //original:30
 	public static final float FILTER_COEFFICIENT = 0.50f;
 	public static final float FILTER_COEFFICIENT_AZIMUTH = 0.98f;
 	private Timer fuseTimer = new Timer();
@@ -168,14 +170,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   // The minimum time between updates in milliseconds
   private static final long MIN_TIME_BW_UPDATES = 1000; // 1 second
   private float finalDistance = 0;
-  
-  //for correct degree error
-  double sasAzimuth = -Math.PI / 2;
-  class positionData {
-	  public float[] orientation;
-	  public float[] sasPosition;
-  }
-  private List<positionData> positionItems;
 
   ViewfinderView getViewfinderView() {
     return viewfinderView;
@@ -204,7 +198,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
     // wait for one second until gyroscope and magnetometer/accelerometer
     // data is initialised then scedule the complementary filter task
-    fuseTimer.scheduleAtFixedRate(new calculateFusedOrientationTask(), 3000, TIME_CONSTANT);
+    fuseTimer.scheduleAtFixedRate(new calculateFusedOrientationTask(), 5000, TIME_CONSTANT);
     
     Window window = getWindow();
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -502,21 +496,31 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     boolean fromLiveScan = barcode != null;
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
-    	if(positionItems.size() < 2) {
+    	if(!initState) {
     		//collect 2 point in the same place.
     		positionData newData = new positionData();
-        	newData.orientation = fusedOrientation;
+        	newData.orientation = fusedOrientation.clone();
         	newData.sasPosition = viewfinderView.sasRelativePosition();
+
         	positionItems.add(newData);
-    	} else {
-    		//start calculate optimize angle value
-    		calcBestVps();
+        	if(positionItems.size() == sampleNums)
+        	{
+        		//start calculate optimize angle value
+        		if(positionItems.size() > 1) { //do compensation only have at least 2 sample
+        			float bestCompensation = getCompensation();	
+        			fusedOrientation[0] = fusedOrientation[0] + bestCompensation;
+        			//錯的，應該繼續cos與距離相除才對
+        		}
+        		double MagVps[] =  getVps(accMagOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
+        		double FusVps[] = getVps(fusedOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
+        		historyManager.addHistoryItem(MagVps, FusVps, gpsAxis, accMagOrientation.clone(), finalDistance, rawResult, resultHandler);
+        		positionItems.clear();
+            	// Then not from history, so beep/vibrate and we have an image to draw on
+            	beepManager.playBeepSoundAndVibrate();
+        	}
     	}
-    	historyManager.addHistoryItem(getVPP(accMagOrientation).clone(), getVPP(fusedOrientation).clone(), gpsAxis, accMagOrientation, finalDistance, rawResult, resultHandler);
-    	// Then not from history, so beep/vibrate and we have an image to draw on
-    	beepManager.playBeepSoundAndVibrate();
     	drawResultPoints(barcode, scaleFactor, rawResult);
-    	}
+    }
     switch (source) {
       case NATIVE_APP_INTENT:
       case PRODUCT_SEARCH_LINK:
@@ -532,19 +536,177 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
       case NONE:
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         if (fromLiveScan && prefs.getBoolean(PreferencesActivity.KEY_BULK_MODE, false)) {
-        	//bravesheng: Here we can show popup information in middle of screen.
-        	/*
-        	String message = "hello message!";
-        	Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
-        	*/
-          // Wait a moment or else it will scan the same barcode continuously about 3 times
-          restartPreviewAfterDelay(BULK_MODE_SCAN_DELAY_MS);
+        	// Wait a moment or else it will scan the same barcode continuously about 3 times
+        	restartPreviewAfterDelay(BULK_MODE_SCAN_DELAY_MS);
         } else {
           handleDecodeInternally(rawResult, resultHandler, barcode);
         }
         break;
     }
   }
+
+public void logCatOrientations() {
+    float tmpOrientation[] = new float[3];
+    
+  	//rotate to landscape
+    tmpOrientation = rotateToLandscape(accMagOrientation.clone());
+    
+    String print = String.format("vpsAxis::%8.2f  %8.2f  %8.2f", vpsAxis[0], vpsAxis[1], vpsAxis[2])
+    		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
+    		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+  	//rotate to landscape
+    tmpOrientation = rotateToLandscape(gyroOrientation.clone());
+    print = print + String.format("\nGYR:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+    tmpOrientation = rotateToLandscape(fusedOrientation.clone());    
+    print = print + String.format("\nFUS:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+    Log.w("zxing", print);
+}
+
+/*
+class positionData {
+	  public float[] orientation;
+	  public double[] sasPosition;
+}
+private List<positionData> positionItems;
+	  	//校正影像傾斜，先寫固定假設SAS的方向是正西方，也就是工五館頂樓的方向
+	  	double radDiff = finalOrientation[1] - sasAzimuth;  //傾斜角
+	  	sasPosition[2] = sasPosition[2] / (float)Math.cos(radDiff);
+	  	finalDistance = sasPosition[2];
+*/
+//for correct degree error
+class positionData {
+	  public float[] orientation;
+	  public double[] sasPosition;
+}
+private List<positionData> positionItems = new ArrayList<positionData>();
+private static final int minDegree = -89;
+private static final int maxDegree = 90;
+private double gapArray[] = new double[180];
+private static final int sampleNums = 1;
+
+
+private float getCompensation() {
+	  
+	  for(int i=0; i < 180; i++) {
+		  gapArray[i] = getStandardDeviation(i+minDegree);
+		  //Log.w("zxing", "gapArray: " + gapArray[i]);
+	  }	  
+	  int result =  findBestCompensation(maxDegree-10); //means 0 degree
+	  result = result + minDegree;
+	  Log.w("zxing", "Compensation:" + result);
+	  return (float)Math.toRadians(result);
+}
+
+private int findBestCompensation(int compensation) {
+	  switch (chooseBetterCompensation(compensation, compensation+1)) {
+	  case 1:
+		  if(-1 == chooseBetterCompensation(compensation, compensation-1)) {
+			  if(compensation -1 == 0) {
+				  //bound
+				  compensation = compensation - 1;
+				  break;
+			  } else {
+				  //compensation-1 is smaller
+				  return findBestCompensation(compensation-1);
+			  }
+		  } else {
+			  //compensation is smallest
+			  break;
+		  }
+	  case -1:
+		  if(compensation+1 == 179) {
+			  //bound
+			  compensation = compensation + 1;
+			  break;
+		  }
+		  else {
+			  //compensation + 1 is smaller
+			  return findBestCompensation(compensation+1);
+		  }
+	  case 0:
+		  //equal
+		  break;
+	  }
+	return compensation; //if case 0 or out of bound
+}
+
+/**
+ * Try to find better compensation from 2 different angle
+ * @param compensationA
+ * @param compensationB
+ * @return 1 means compensationA is better. -1 means compensationB is better. 0 means equal.
+ */
+private int chooseBetterCompensation(int compensationA, int compensationB) {
+
+	  if(gapArray[compensationA] < gapArray[compensationB]) {
+		  return 1;
+	  } else if (gapArray[compensationA] == gapArray[compensationB]) {
+		  return 0;
+	  } else {
+		  return -1;
+	  }
+}
+
+/**
+ * Calculate distance between SAS and camera.
+ * @param compensation An compensation for angle.
+ * @return
+ */
+private double getStandardDeviation(int compensation) {
+	  positionData data[] = new positionData[sampleNums];
+	  double tiltAngle[] = new double[sampleNums];
+	  double distance[] = new double[sampleNums];
+
+	  for(int i=0; i < sampleNums; i++) {
+		  data[i] = positionItems.get(i);
+		  tiltAngle[i] = data[i].orientation[0] + compensation;	//not yet rotate to landscape mode. So azimuth is orientation[0]
+		  distance[i] = data[i].sasPosition[2] / Math.cos(Math.toRadians(tiltAngle[i]));
+	  }
+	  StandardDeviation stdDeviation = new StandardDeviation(distance);
+	  return stdDeviation.evaluate();
+	  //return Math.abs(distance[0] - distance[1]);
+}
+
+private float[] rotateToLandscape(float[] beforeRotate) {
+	  float[] finalOrientation = new float[3];
+	  
+	  	finalOrientation[0] = beforeRotate[1];						//horizontal balance degree. clockwise is positive
+	  	if(beforeRotate[0] < Math.PI / 2) {
+	  		finalOrientation[1] = (beforeRotate[0] + (float)(Math.PI * 0.5)); //compass degree. clockwise is positive
+	  	}
+	  	else {
+	  		finalOrientation[1] = beforeRotate[0] - (float)(Math.PI * 1.5); //compass degree. clockwise is positive
+	  	}
+	  	if(beforeRotate[0] < Math.PI / 2) {
+	  		finalOrientation[2] = (beforeRotate[2] + (float)(Math.PI * 0.5)); //vertical degree. clockwise is positive
+	  	}
+	  	else {
+	  		finalOrientation[2] = beforeRotate[2] - (float)(Math.PI * 1.5); //vertical degree. clockwise is positive
+	  	}
+	  	return finalOrientation;
+}
+
+private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
+	  	//fine tune values for landscape mode
+	  	float[] finalOrientation = rotateToLandscape(sourceOrientation.clone());	 
+	    //Rotate Y horizontal balance degree
+	    double x1 = sasPosition[0] * Math.cos(finalOrientation[0]) + sasPosition[1] * Math.sin(finalOrientation[0]);
+	    double y1 = sasPosition[2];
+	    double z1 = -sasPosition[0] * Math.sin(finalOrientation[0]) + sasPosition[1] * Math.cos(finalOrientation[0]);
+	    //Rotate X vertical degree
+	    double x2 = x1;
+	    double y2 = y1 * Math.cos(finalOrientation[2]) - z1 * Math.sin(finalOrientation[2]);
+	    double z2 = y1 * Math.sin(finalOrientation[2]) - z1 * Math.cos(finalOrientation[2]);
+	    //Rotate Z compass degree
+	    double x3 = x2 * Math.cos(-finalOrientation[1]) - y2 * Math.sin(-finalOrientation[1]);
+	    double y3 = x2 * Math.sin(-finalOrientation[1]) + y2 * Math.cos(-finalOrientation[1]);
+	    double z3 = z2;
+	    //Rotate to world coordinate and convert unit to meters
+	    vpsAxis[0] = -x3 / 100;	//mapping to longitude經度
+	    vpsAxis[1] = -y3 / 100;	//mapping to latitude緯度
+	    vpsAxis[2] = z3 / 100;	//mapping to altitude高度
+	    return vpsAxis;
+}
 
   /**
    * Superimpose a line for 1D or dots for 2D to highlight the key features of the barcode.
@@ -843,75 +1005,6 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     }
     resetStatusView();
   }
-
-  private float[] rotateToLandscape(float[] beforeRotate) {
-	  float[] finalOrientation = new float[3];
-	  
-	  	finalOrientation[0] = beforeRotate[1];						//horizontal balance degree. clockwise is positive
-	  	if(beforeRotate[0] < Math.PI / 2) {
-	  		finalOrientation[1] = (beforeRotate[0] + (float)(Math.PI * 0.5)); //compass degree. clockwise is positive
-	  	}
-	  	else {
-	  		finalOrientation[1] = beforeRotate[0] - (float)(Math.PI * 1.5); //compass degree. clockwise is positive
-	  	}
-	  	if(beforeRotate[0] < Math.PI / 2) {
-	  		finalOrientation[2] = (beforeRotate[2] + (float)(Math.PI * 0.5)); //vertical degree. clockwise is positive
-	  	}
-	  	else {
-	  		finalOrientation[2] = beforeRotate[2] - (float)(Math.PI * 1.5); //vertical degree. clockwise is positive
-	  	}
-	  	return finalOrientation;
-  }
-  
-/*
-class positionData {
-	  public float[] orientation;
-	  public float[] sasPosition;
-  }
-private List<positionData> positionItems;
-  	  	//校正影像傾斜，先寫固定假設SAS的方向是正西方，也就是工五館頂樓的方向
-	  	double radDiff = finalOrientation[1] - sasAzimuth;  //傾斜角
-	  	sasPosition[2] = sasPosition[2] / (float)Math.cos(radDiff);
-	  	finalDistance = sasPosition[2];
- */
-  private double[] calcBestVps() {
-	  positionData data1 = positionItems.get(0);
-	  
-	  double distance1 = data1.orientation[1] - sasAzimuth;
-}
-  
-  private double[] getVPP(float[] sourceOrientation) {
-	  //fine tune values for landscape mode
-	  	float[] finalOrientation = rotateToLandscape(sourceOrientation.clone());	  	
-	  	
-	    if(lastResult != null) //Do rotate coordinate to match world coordinate system
-	    {	
-	    	float sasPosition[] = viewfinderView.sasRelativePosition();
-	    	//Rotate Y horizontal balance degree
-	    	double x1 = sasPosition[0] * Math.cos(finalOrientation[1]) + sasPosition[2] * Math.sin(finalOrientation[1]);
-	    	double y1 = sasPosition[1];
-	    	double z1 = -sasPosition[0] * Math.sin(finalOrientation[1]) + sasPosition[2] * Math.cos(finalOrientation[1]);
-	    	//Rotate X vertical degree
-	    	double x2 = x1;
-	    	double y2 = y1 * Math.cos(finalOrientation[0]) - z1 * Math.sin(finalOrientation[0]);
-	    	double z2 = y1 * Math.sin(finalOrientation[0]) - z1 * Math.cos(finalOrientation[0]);
-	    	//Rotate Z compass degree
-	    	double x3 = x2 * Math.cos(-finalOrientation[2]) - y2 * Math.sin(-finalOrientation[2]);
-	    	double y3 = x2 * Math.sin(-finalOrientation[2]) + y2 * Math.cos(-finalOrientation[2]);
-	    	double z3 = z2;
-	    	//Rotate to world coordinate and convert unit to meters
-	    	vppAxis[0] = -x3 / 100;	//mapping to longitude經度
-	    	vppAxis[1] = z3 / 100;	//mapping to latitude緯度
-	    	vppAxis[2] = -y3 / 100;	//mapping to altitude高度
-	    	Log.w("zxing", "sasPosition:" + sasPosition[0] + " : " + sasPosition[1] + " : " + sasPosition[2]);
-	    	Log.w("zxing", "finalOrientation:" + finalOrientation[0] + " : " + finalOrientation[1] + " : " + finalOrientation[2]);
-	    	Log.w("zxing", "vppAxis:" + vppAxis[0] + " : " + vppAxis[1] + " : " + vppAxis[2]);
-	    	return vppAxis;
-	    }
-	    else {
-	    	return null;
-	    }
-  }
   
   //bravesheng: Can add information here. Will display on live screen.
   private void resetStatusView() {
@@ -919,11 +1012,10 @@ private List<positionData> positionItems;
     //Change to position for debug
     float tmpOrientation[] = new float[3];
     
-    
   	//rotate to landscape
     tmpOrientation = rotateToLandscape(accMagOrientation.clone());
 
-    String print = String.format("vppAxis::%8.2f  %8.2f  %8.2f", vppAxis[0], vppAxis[1], vppAxis[2])
+    String print = String.format("vpsAxis::%8.2f  %8.2f  %8.2f", vpsAxis[0], vpsAxis[1], vpsAxis[2])
     		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
     		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
   	//rotate to landscape
@@ -967,7 +1059,7 @@ public void calculateAccMagOrientation() {
 	if((accelerometer_values != null) && (magnitude_values != null)) {
 	    if(SensorManager.getRotationMatrix(rotationMatrix, null, accelerometer_values, magnitude_values)) {
 	        SensorManager.getOrientation(rotationMatrix, accMagOrientation);
-	        
+	        accMagOrientation[0] = accMagOrientation[0] - shiftRad;
 	    }
 	}
 }
@@ -1139,13 +1231,17 @@ public void onProviderDisabled(String provider) {
 	Log.w("zxing", "onProviderDisabled");
 }
 //Fusion Sensor
+private float shiftRad = 0;
 class calculateFusedOrientationTask extends TimerTask {
     public void run() {
     	//initial Gyroscope data
     	if(initState) {
+    		shiftRad = accMagOrientation[0] + (float)Math.PI/2; //表示朝正北
+    		//shiftRad = accMagOrientation[0] + (float)Math.PI; //表示朝正西
+    		accMagOrientation[0] = accMagOrientation[0] - shiftRad;
             gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
             System.arraycopy(accMagOrientation, 0, gyroOrientation, 0, 3);
-            gyroOrientation[0] = (float) -Math.PI;
+            //gyroOrientation[0] = (float) -Math.PI;
             initState = false;
     	}
         float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
