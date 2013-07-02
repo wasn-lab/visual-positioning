@@ -704,14 +704,12 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
     double y1 = sasPosition[2];
     double z1 = -sasPosition[0] * Math.sin(finalOrientation[0]) + sasPosition[1] * Math.cos(finalOrientation[0]);
     //Rotate X vertical degree
-    double verticalRad = finalOrientation[2];// - sasPosition[4];
-    double azimuthRad = finalOrientation[1];// + sasPosition[3];
     double x2 = x1;
-    double y2 = y1 * Math.cos(verticalRad) - z1 * Math.sin(verticalRad);
-    double z2 = y1 * Math.sin(verticalRad) - z1 * Math.cos(verticalRad);
+    double y2 = y1 * Math.cos(finalOrientation[2] - sasPosition[4]) - z1 * Math.sin(finalOrientation[2] - sasPosition[4]);
+    double z2 = y1 * Math.sin(finalOrientation[2]) - z1 * Math.cos(finalOrientation[2]);
     //Rotate Z compass degree
-    double x3 = x2 * Math.cos(-azimuthRad) - y2 * Math.sin(-azimuthRad);
-    double y3 = x2 * Math.sin(-azimuthRad) + y2 * Math.cos(-azimuthRad);
+    double x3 = x2 * Math.cos(-finalOrientation[1]) - y2 * Math.sin(-finalOrientation[1]);
+    double y3 = x2 * Math.sin(-finalOrientation[1]) + y2 * Math.cos(-finalOrientation[1]);
     double z3 = z2;
     //Rotate to world coordinate and convert unit to meters
     vpsAxis[0] = -x3 / 100;	//mapping to longitude¸g«×
