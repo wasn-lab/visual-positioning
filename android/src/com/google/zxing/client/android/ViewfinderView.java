@@ -235,7 +235,7 @@ public final class ViewfinderView extends View {
 			  double sasPosition[] = sasRelativePosition();
 			  paint.setARGB(255, 255, 255, 255);
 			  paint.setShadowLayer((float)Math.PI, 2, 2, 0xFF000000);
-			  String locStr = String.format(" S1=%f : S2=%f : L=%f", getSasSize(), getSasSize2(), sasPosition[2]);	//the real distance
+			  String locStr = String.format(" SVblue=%f : SHgreen=%f : L=%f", getSasSizeVertical(), getSasSizeHorizontal(), sasPosition[2]);	//the real distance
 			  canvas.drawText(locStr, 30, 40, paint);
 			  }
 		  }
@@ -246,22 +246,19 @@ public final class ViewfinderView extends View {
    * Choose longest length as measurement target.
    * @author bravesheng@gmail.com
    */
-  public double getSasSize() {
+  public double getSasSizeVertical() {
 	  ResultPoint[] points = lastResult.getResultPoints();
-	  double dist1 = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));
-	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
-	  
-	  return dist1; //according to test. points[0] -> point1[1] = horizontal for qrcode
-	  //return dist2;
+	  double dist1 = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));	  
+	  return dist1; //according to test. points[0] -> point1[1] = vertical for qrcode blue
   }
   
   
-  public double getSasSize2() {
+  public double getSasSizeHorizontal() {
 	  ResultPoint[] points = lastResult.getResultPoints();
 	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
-	  
-	  return dist2; //according to test. points[0] -> point1[1] = horizontal for qrcode
-	  //return dist2;
+	  float vertical_rad = captureActivity.getRotatedOrientation()[2];
+	  dist2 = dist2 * Math.cos(vertical_rad);
+	  return dist2; //according to test. points[1] -> point1[2] = horizontal for qrcode green
   }
   
   /**
@@ -269,7 +266,7 @@ public final class ViewfinderView extends View {
    * @author bravesheng@gmail.com
    */
   public double calcSasCenterDistance() {
-	  double sas_pixel_length = getSasSize();
+	  double sas_pixel_length = getSasSizeHorizontal();
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
 	  double angle_of_sas_size = angle_per_pixel * sas_pixel_length;
@@ -295,8 +292,16 @@ public final class ViewfinderView extends View {
 	  double sasX = sasDistance * Math.sin(rad_x);
 	  double sasY = sasDistance * Math.sin(rad_y);
 	  //recalculate real Z
-	  double sasZ = Math.sqrt(sasX * sasX + sasY * sasY + sasDistance * sasDistance);
-	  double sasAxis[] = {sasX, sasY, sasZ};
-	  return sasAxis;
+	  //float vertical_rad = captureActivity.getRotatedOrientation()[2];
+	  //double sasZ = Math.sqrt(sasX * sasX + sasY * sasY + sasDistance * sasDistance);// / Math.cos(vertical_rad);
+	  double sasZ = sasDistance;	//because we only need distance to center. Not real distance to sas. So keep this value is okay.
+	  double sasAxisRad[] = {sasX, sasY, sasZ, rad_x, rad_y};
+	  return sasAxisRad;
+  }
+  
+  private CaptureActivity captureActivity;
+  
+  public void setCaptureActivity(CaptureActivity activity) {
+	  captureActivity = activity;
   }
 }

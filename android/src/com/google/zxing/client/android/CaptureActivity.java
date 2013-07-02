@@ -239,6 +239,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
     viewfinderView = (ViewfinderView) findViewById(R.id.viewfinder_view);
     viewfinderView.setCameraManager(cameraManager);
+    viewfinderView.setCaptureActivity(this);
 
     resultView = findViewById(R.id.result_view);
     statusView = (TextView) findViewById(R.id.status_view);
@@ -513,7 +514,8 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
         		}
         		double MagVps[] =  getVps(accMagOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
         		double FusVps[] = getVps(fusedOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
-        		historyManager.addHistoryItem(MagVps, FusVps, gpsAxis, accMagOrientation.clone(), finalDistance, rawResult, resultHandler);
+        		historyManager.addHistoryItem(MagVps, FusVps, positionItems.get(sampleNums-1).sasPosition.clone(), accMagOrientation.clone(), finalDistance, rawResult, resultHandler);
+        		//historyManager.addHistoryItem(MagVps, FusVps, gpsAxis, accMagOrientation.clone(), finalDistance, rawResult, resultHandler);
         		positionItems.clear();
             	// Then not from history, so beep/vibrate and we have an image to draw on
             	beepManager.playBeepSoundAndVibrate();
@@ -667,6 +669,10 @@ private double getStandardDeviation(int compensation) {
 	  //return Math.abs(distance[0] - distance[1]);
 }
 
+public float[] getRotatedOrientation() {
+	return rotateToLandscape(fusedOrientation);
+}
+
 private float[] rotateToLandscape(float[] beforeRotate) {
 	  float[] finalOrientation = new float[3];
 	  
@@ -694,9 +700,10 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
 	    double y1 = sasPosition[2];
 	    double z1 = -sasPosition[0] * Math.sin(finalOrientation[0]) + sasPosition[1] * Math.cos(finalOrientation[0]);
 	    //Rotate X vertical degree
+	    double verticalRad = finalOrientation[2] - sasPosition[4];
 	    double x2 = x1;
-	    double y2 = y1 * Math.cos(finalOrientation[2]) - z1 * Math.sin(finalOrientation[2]);
-	    double z2 = y1 * Math.sin(finalOrientation[2]) - z1 * Math.cos(finalOrientation[2]);
+	    double y2 = y1 * Math.cos(verticalRad) - z1 * Math.sin(verticalRad);
+	    double z2 = y1 * Math.sin(verticalRad) - z1 * Math.cos(verticalRad);
 	    //Rotate Z compass degree
 	    double x3 = x2 * Math.cos(-finalOrientation[1]) - y2 * Math.sin(-finalOrientation[1]);
 	    double y3 = x2 * Math.sin(-finalOrientation[1]) + y2 * Math.cos(-finalOrientation[1]);
