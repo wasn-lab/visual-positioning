@@ -548,23 +548,6 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     }
   }
 
-public void logCatOrientations() {
-    float tmpOrientation[] = new float[3];
-    
-  	//rotate to landscape
-    tmpOrientation = rotateToLandscape(accMagOrientation.clone());
-    
-    String print = String.format("magVpsAxis::%8.2f  %8.2f  %8.2f", magVpsAxis[0], magVpsAxis[1], magVpsAxis[2])
-    		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
-    		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
-  	//rotate to landscape
-    tmpOrientation = rotateToLandscape(gyroOrientation.clone());
-    print = print + String.format("\nGYR:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
-    tmpOrientation = rotateToLandscape(fusedOrientation.clone());    
-    print = print + String.format("\nFUS:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
-    Log.w("zxing", print);
-}
-
 /*
 class positionData {
 	  public float[] orientation;
@@ -710,6 +693,7 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
     //Rotate Z compass degree
     double x3 = x2 * Math.cos(-finalOrientation[1]) - y2 * Math.sin(-finalOrientation[1]);
     double y3 = x2 * Math.sin(-finalOrientation[1]) + y2 * Math.cos(-finalOrientation[1]);
+    //double y3 = x2 * Math.sin(-finalOrientation[1] + sasPosition[3]) + y2 * Math.cos(-finalOrientation[1] + sasPosition[3]);
     double z3 = z2;
     //Rotate to world coordinate and convert unit to meters
     vpsAxis[0] = -x3 / 100;	//mapping to longitude¸g«×
@@ -1016,24 +1000,31 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
     resetStatusView();
   }
   
+  private String prepareInfoString() {
+	    //Change to position for debug
+	    float tmpOrientation[] = new float[3];
+	    
+	  	//rotate to landscape
+	    tmpOrientation = rotateToLandscape(accMagOrientation.clone());
+
+	    String print = String.format("magVpsAxis:%8.2f  %8.2f  %8.2f", magVpsAxis[0], magVpsAxis[1], magVpsAxis[2])
+	    		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
+	    		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+	  	//rotate to landscape
+	    tmpOrientation = rotateToLandscape(gyroOrientation.clone());
+	    print = print + String.format("\nGYR:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+	    tmpOrientation = rotateToLandscape(fusedOrientation.clone());    
+	    print = print + String.format("\nFUS:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+	 return print;
+  }
+  
   //bravesheng: Can add information here. Will display on live screen.
   private void resetStatusView() {
     resultView.setVisibility(View.GONE);
-    //Change to position for debug
-    float tmpOrientation[] = new float[3];
-    
-  	//rotate to landscape
-    tmpOrientation = rotateToLandscape(accMagOrientation.clone());
-
-    String print = String.format("magVpsAxis::%8.2f  %8.2f  %8.2f", magVpsAxis[0], magVpsAxis[1], magVpsAxis[2])
-    		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
-    		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
-  	//rotate to landscape
-    tmpOrientation = rotateToLandscape(gyroOrientation.clone());
-    print = print + String.format("\nGYR:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
-    tmpOrientation = rotateToLandscape(fusedOrientation.clone());    
-    print = print + String.format("\nFUS:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
-    statusView.setText(print);  		
+    statusView.setTextSize(20);
+    //statusView.setTextColor(android.graphics.Color.BLUE);
+    statusView.setShadowLayer((float)Math.PI, 2, 2, 0xFF000000);
+    statusView.setText(prepareInfoString());  		
     statusView.setVisibility(View.VISIBLE);
     viewfinderView.setVisibility(View.VISIBLE);
     lastResult = null;
