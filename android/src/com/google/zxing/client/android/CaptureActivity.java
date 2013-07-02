@@ -140,8 +140,9 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private float[] accMagOrientation = new float[3];
   // final orientation angles from sensor fusion
   private float[] fusedOrientation = new float[3];
-  private double[] vpsAxis = new double[3];
-  private float[] gpsAxis = new float[3]; 
+  private double[] magVpsAxis = new double[3];
+  private double[] fusVpsAxis = new double[3];
+  private double[] gpsAxis = new double[3]; 
   public static final float EPSILON = 0.000000001f;
   private static final float NS2S = 1.0f / 1000000000.0f;
   private float timestamp;
@@ -512,10 +513,10 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
         			fusedOrientation[0] = fusedOrientation[0] + bestCompensation;
         			//錯的，應該繼續cos與距離相除才對
         		}
-        		double MagVps[] =  getVps(accMagOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
-        		double FusVps[] = getVps(fusedOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
-        		historyManager.addHistoryItem(MagVps, FusVps, positionItems.get(sampleNums-1).sasPosition.clone(), accMagOrientation.clone(), finalDistance, rawResult, resultHandler);
-        		//historyManager.addHistoryItem(MagVps, FusVps, gpsAxis, accMagOrientation.clone(), finalDistance, rawResult, resultHandler);
+        		magVpsAxis =  getVps(accMagOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
+        		fusVpsAxis = getVps(fusedOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
+        		gpsAxis = positionItems.get(sampleNums-1).sasPosition.clone();
+        		historyManager.addHistoryItem(magVpsAxis, magVpsAxis, gpsAxis, accMagOrientation.clone(), finalDistance, rawResult, resultHandler);
         		positionItems.clear();
             	// Then not from history, so beep/vibrate and we have an image to draw on
             	beepManager.playBeepSoundAndVibrate();
@@ -553,7 +554,7 @@ public void logCatOrientations() {
   	//rotate to landscape
     tmpOrientation = rotateToLandscape(accMagOrientation.clone());
     
-    String print = String.format("vpsAxis::%8.2f  %8.2f  %8.2f", vpsAxis[0], vpsAxis[1], vpsAxis[2])
+    String print = String.format("magVpsAxis::%8.2f  %8.2f  %8.2f", magVpsAxis[0], magVpsAxis[1], magVpsAxis[2])
     		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
     		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
   	//rotate to landscape
@@ -669,8 +670,10 @@ private double getStandardDeviation(int compensation) {
 	  //return Math.abs(distance[0] - distance[1]);
 }
 
-public float[] getRotatedOrientation() {
-	return rotateToLandscape(fusedOrientation);
+public float[] getOrientationForSas() {
+	float orientationForSas[] = rotateToLandscape(accMagOrientation.clone());
+	//orientationForSas[1] = orientationForSas[1] - centerAzimuth - (float)Math.PI/2;
+	return orientationForSas;
 }
 
 private float[] rotateToLandscape(float[] beforeRotate) {
@@ -693,26 +696,28 @@ private float[] rotateToLandscape(float[] beforeRotate) {
 }
 
 private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
-	  	//fine tune values for landscape mode
-	  	float[] finalOrientation = rotateToLandscape(sourceOrientation.clone());	 
-	    //Rotate Y horizontal balance degree
-	    double x1 = sasPosition[0] * Math.cos(finalOrientation[0]) + sasPosition[1] * Math.sin(finalOrientation[0]);
-	    double y1 = sasPosition[2];
-	    double z1 = -sasPosition[0] * Math.sin(finalOrientation[0]) + sasPosition[1] * Math.cos(finalOrientation[0]);
-	    //Rotate X vertical degree
-	    double verticalRad = finalOrientation[2] - sasPosition[4];
-	    double x2 = x1;
-	    double y2 = y1 * Math.cos(verticalRad) - z1 * Math.sin(verticalRad);
-	    double z2 = y1 * Math.sin(verticalRad) - z1 * Math.cos(verticalRad);
-	    //Rotate Z compass degree
-	    double x3 = x2 * Math.cos(-finalOrientation[1]) - y2 * Math.sin(-finalOrientation[1]);
-	    double y3 = x2 * Math.sin(-finalOrientation[1]) + y2 * Math.cos(-finalOrientation[1]);
-	    double z3 = z2;
-	    //Rotate to world coordinate and convert unit to meters
-	    vpsAxis[0] = -x3 / 100;	//mapping to longitude經度
-	    vpsAxis[1] = -y3 / 100;	//mapping to latitude緯度
-	    vpsAxis[2] = z3 / 100;	//mapping to altitude高度
-	    return vpsAxis;
+	double vpsAxis[] = new double[3];
+  	//fine tune values for landscape mode
+  	float[] finalOrientation = rotateToLandscape(sourceOrientation.clone());	 
+    //Rotate Y horizontal balance degree
+    double x1 = sasPosition[0] * Math.cos(finalOrientation[0]) + sasPosition[1] * Math.sin(finalOrientation[0]);
+    double y1 = sasPosition[2];
+    double z1 = -sasPosition[0] * Math.sin(finalOrientation[0]) + sasPosition[1] * Math.cos(finalOrientation[0]);
+    //Rotate X vertical degree
+    double verticalRad = finalOrientation[2];// - sasPosition[4];
+    double azimuthRad = finalOrientation[1];// + sasPosition[3];
+    double x2 = x1;
+    double y2 = y1 * Math.cos(verticalRad) - z1 * Math.sin(verticalRad);
+    double z2 = y1 * Math.sin(verticalRad) - z1 * Math.cos(verticalRad);
+    //Rotate Z compass degree
+    double x3 = x2 * Math.cos(-azimuthRad) - y2 * Math.sin(-azimuthRad);
+    double y3 = x2 * Math.sin(-azimuthRad) + y2 * Math.cos(-azimuthRad);
+    double z3 = z2;
+    //Rotate to world coordinate and convert unit to meters
+    vpsAxis[0] = -x3 / 100;	//mapping to longitude經度
+    vpsAxis[1] = -y3 / 100;	//mapping to latitude緯度
+    vpsAxis[2] = z3 / 100;	//mapping to altitude高度
+    return vpsAxis;
 }
 
   /**
@@ -1022,7 +1027,7 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
   	//rotate to landscape
     tmpOrientation = rotateToLandscape(accMagOrientation.clone());
 
-    String print = String.format("vpsAxis::%8.2f  %8.2f  %8.2f", vpsAxis[0], vpsAxis[1], vpsAxis[2])
+    String print = String.format("magVpsAxis::%8.2f  %8.2f  %8.2f", magVpsAxis[0], magVpsAxis[1], magVpsAxis[2])
     		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
     		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
   	//rotate to landscape
@@ -1238,13 +1243,14 @@ public void onProviderDisabled(String provider) {
 	Log.w("zxing", "onProviderDisabled");
 }
 //Fusion Sensor
+//private float centerAzimuth = (float)-Math.PI; //表示誠正西拍攝(因為尚未校正為橫向，所以是-PI)
+private float centerAzimuth = (float)-Math.PI/2; //表示誠正北拍攝(因為尚未校正為橫向，所以是-PI/2)
 private float shiftRad = 0;
 class calculateFusedOrientationTask extends TimerTask {
     public void run() {
     	//initial Gyroscope data
     	if(initState) {
-    		shiftRad = accMagOrientation[0] + (float)Math.PI/2; //表示朝正北
-    		//shiftRad = accMagOrientation[0] + (float)Math.PI; //表示朝正西
+    		shiftRad = accMagOrientation[0] - centerAzimuth;
     		accMagOrientation[0] = accMagOrientation[0] - shiftRad;
             gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
             System.arraycopy(accMagOrientation, 0, gyroOrientation, 0, 3);

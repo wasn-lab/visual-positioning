@@ -235,38 +235,39 @@ public final class ViewfinderView extends View {
 			  double sasPosition[] = sasRelativePosition();
 			  paint.setARGB(255, 255, 255, 255);
 			  paint.setShadowLayer((float)Math.PI, 2, 2, 0xFF000000);
-			  String locStr = String.format(" SVblue=%f : SHgreen=%f : L=%f", getSasSizeVertical(), getSasSizeHorizontal(), sasPosition[2]);	//the real distance
+			  float azimuth_rad = captureActivity.getOrientationForSas()[1];
+			  float vertical_rad = captureActivity.getOrientationForSas()[2];
+			  String locStr = String.format(" SIZE=%f, DISTANCE=%f", getSasSize(), sasPosition[2]);	//the real distance
 			  canvas.drawText(locStr, 30, 40, paint);
 			  }
 		  }
 	  }
   
   /**
-   * Calculate SAS width. Will compare 2 distance and use longest.
-   * Choose longest length as measurement target.
+   * Calculate SAS width. This function use QRcode vertical(BLUE) and horizontal(GREEN) line to do that.
+   * And this line is good for horizontal  degree measurement.
    * @author bravesheng@gmail.com
    */
-  public double getSasSizeVertical() {
+  public double getSasSize() {
 	  ResultPoint[] points = lastResult.getResultPoints();
-	  double dist1 = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));	  
-	  return dist1; //according to test. points[0] -> point1[1] = vertical for qrcode blue
+	  double sizeV = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));	  
+	  double sizeH = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
+	  float azimuth_rad = captureActivity.getOrientationForSas()[1];
+	  float vertical_rad = captureActivity.getOrientationForSas()[2];
+	//according to test. points[0] -> point1[1] = vertical for qrcode blue line. good for horizontal
+	  sizeV = sizeV * Math.cos(azimuth_rad) * Math.cos(vertical_rad) * Math.cos(vertical_rad);
+	//according to test. points[1] -> point1[2] = vertical for qrcode. green line. good for vertical
+	  sizeH = sizeH * Math.cos(vertical_rad) * Math.cos(azimuth_rad) * Math.cos(azimuth_rad);
+	  return (sizeV + sizeH)/2;
   }
   
-  
-  public double getSasSizeHorizontal() {
-	  ResultPoint[] points = lastResult.getResultPoints();
-	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
-	  float vertical_rad = captureActivity.getRotatedOrientation()[2];
-	  dist2 = dist2 * Math.cos(vertical_rad);
-	  return dist2; //according to test. points[1] -> point1[2] = horizontal for qrcode green
-  }
   
   /**
    * Calculate distance between SAS and camera.
    * @author bravesheng@gmail.com
    */
   public double calcSasCenterDistance() {
-	  double sas_pixel_length = getSasSizeHorizontal();
+	  double sas_pixel_length = getSasSize();
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
 	  double angle_of_sas_size = angle_per_pixel * sas_pixel_length;
@@ -291,9 +292,6 @@ public final class ViewfinderView extends View {
 	  double rad_y = ((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel;
 	  double sasX = sasDistance * Math.sin(rad_x);
 	  double sasY = sasDistance * Math.sin(rad_y);
-	  //recalculate real Z
-	  //float vertical_rad = captureActivity.getRotatedOrientation()[2];
-	  //double sasZ = Math.sqrt(sasX * sasX + sasY * sasY + sasDistance * sasDistance);// / Math.cos(vertical_rad);
 	  double sasZ = sasDistance;	//because we only need distance to center. Not real distance to sas. So keep this value is okay.
 	  double sasAxisRad[] = {sasX, sasY, sasZ, rad_x, rad_y};
 	  return sasAxisRad;
