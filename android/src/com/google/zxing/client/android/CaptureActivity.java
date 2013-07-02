@@ -672,7 +672,7 @@ private double getStandardDeviation(int compensation) {
 
 public float[] getOrientationForSas() {
 	float orientationForSas[] = rotateToLandscape(accMagOrientation.clone());
-	//orientationForSas[1] = orientationForSas[1] - centerAzimuth - (float)Math.PI/2;
+	orientationForSas[1] = orientationForSas[1] - centerAzimuth - (float)Math.PI/2;
 	return orientationForSas;
 }
 
@@ -1254,7 +1254,6 @@ class calculateFusedOrientationTask extends TimerTask {
     		accMagOrientation[0] = accMagOrientation[0] - shiftRad;
             gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
             System.arraycopy(accMagOrientation, 0, gyroOrientation, 0, 3);
-            //gyroOrientation[0] = (float) -Math.PI;
             initState = false;
     	}
         float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
