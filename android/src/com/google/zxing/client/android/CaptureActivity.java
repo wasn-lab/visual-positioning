@@ -157,9 +157,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private float[] gyroOrientation = new float[3];
   
   //for fusion
-	public static final int TIME_CONSTANT = 300; //original:30
-	public static final float FILTER_COEFFICIENT = 0.50f;
-	public static final float FILTER_COEFFICIENT_AZIMUTH = 0.98f;
+	public static final int TIME_CONSTANT = 90; //original:30
+	public static final float FILTER_COEFFICIENT = 0.98f;
 	private Timer fuseTimer = new Timer();
   
   //for GPS
@@ -513,10 +512,10 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
         			fusedOrientation[0] = fusedOrientation[0] + bestCompensation;
         			//錯的，應該繼續cos與距離相除才對
         		}
-        		magVpsAxis =  getVps(accMagOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
-        		fusVpsAxis = getVps(fusedOrientation, positionItems.get(sampleNums-1).sasPosition).clone();
+        		magVpsAxis =  getVps(accMagOrientation.clone(), positionItems.get(sampleNums-1).sasPosition).clone();
+        		fusVpsAxis = getVps(fusedOrientation.clone(), positionItems.get(sampleNums-1).sasPosition).clone();
         		gpsAxis = positionItems.get(sampleNums-1).sasPosition.clone();
-        		historyManager.addHistoryItem(magVpsAxis, magVpsAxis, gpsAxis, accMagOrientation.clone(), finalDistance, rawResult, resultHandler);
+        		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
         		positionItems.clear();
             	// Then not from history, so beep/vibrate and we have an image to draw on
             	beepManager.playBeepSoundAndVibrate();
@@ -1000,6 +999,11 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
     resetStatusView();
   }
   
+  public void logcatArrayString(String name, double[] array) {
+	    String print = String.format("%8.2f  %8.2f  %8.2f", Math.toDegrees(array[0]), Math.toDegrees(array[0]), Math.toDegrees(array[0]));
+	    Log.w("zxing", name + print);
+}
+  
   private String prepareInfoString() {
 	    //Change to position for debug
 	    float tmpOrientation[] = new float[3];
@@ -1246,7 +1250,6 @@ class calculateFusedOrientationTask extends TimerTask {
             initState = false;
     	}
         float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
-        float oneMinusCoeffAzimuth = 1.0f - FILTER_COEFFICIENT_AZIMUTH;
         /*
          * Fix for 179<--> -179transition problem:
          * Check whether one of the two orientation angles (gyro or accMag) is negative while the other one is positive.
@@ -1254,26 +1257,43 @@ class calculateFusedOrientationTask extends TimerTask {
          * if it is greater than 180 This stabilizes the output in positive-to-negative-transition cases.
          */
         
-        // azimuth
-        //fusedOrientation[0] = (float) -Math.PI;
-        
+        // azimuth   
         if (gyroOrientation[0] < -0.5 * Math.PI && accMagOrientation[0] > 0.0) {
-        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT_AZIMUTH * (gyroOrientation[0] + 2.0 * Math.PI) + oneMinusCoeffAzimuth * accMagOrientation[0]);
+        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT * (gyroOrientation[0] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[0]);
     		fusedOrientation[0] -= (fusedOrientation[0] > Math.PI) ? 2.0 * Math.PI : 0;
         }
         else if (accMagOrientation[0] < -0.5 * Math.PI && gyroOrientation[0] > 0.0) {
-        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT_AZIMUTH * gyroOrientation[0] + oneMinusCoeffAzimuth * (accMagOrientation[0] + 2.0 * Math.PI));
+        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT * gyroOrientation[0] + oneMinusCoeff * (accMagOrientation[0] + 2.0 * Math.PI));
         	fusedOrientation[0] -= (fusedOrientation[0] > Math.PI)? 2.0 * Math.PI : 0;
         }
         else {
-        	fusedOrientation[0] = FILTER_COEFFICIENT_AZIMUTH * gyroOrientation[0] + oneMinusCoeffAzimuth * accMagOrientation[0];
+        	fusedOrientation[0] = FILTER_COEFFICIENT * gyroOrientation[0] + oneMinusCoeff * accMagOrientation[0];
         }
-
         // pitch
-        fusedOrientation[1] = accMagOrientation[1];
+        if (gyroOrientation[1] < -0.5 * Math.PI && accMagOrientation[1] > 0.0) {
+        	fusedOrientation[1] = (float) (FILTER_COEFFICIENT * (gyroOrientation[1] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[1]);
+    		fusedOrientation[1] -= (fusedOrientation[1] > Math.PI) ? 2.0 * Math.PI : 0;
+        }
+        else if (accMagOrientation[1] < -0.5 * Math.PI && gyroOrientation[1] > 0.0) {
+        	fusedOrientation[1] = (float) (FILTER_COEFFICIENT * gyroOrientation[1] + oneMinusCoeff * (accMagOrientation[1] + 2.0 * Math.PI));
+        	fusedOrientation[1] -= (fusedOrientation[1] > Math.PI)? 2.0 * Math.PI : 0;
+        }
+        else {
+        	fusedOrientation[1] = FILTER_COEFFICIENT * gyroOrientation[1] + oneMinusCoeff * accMagOrientation[1];
+        }
         
         // roll
-        fusedOrientation[2] = accMagOrientation[2];
+        if (gyroOrientation[2] < -0.5 * Math.PI && accMagOrientation[2] > 0.0) {
+        	fusedOrientation[2] = (float) (FILTER_COEFFICIENT * (gyroOrientation[2] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[2]);
+    		fusedOrientation[2] -= (fusedOrientation[2] > Math.PI) ? 2.0 * Math.PI : 0;
+        }
+        else if (accMagOrientation[2] < -0.5 * Math.PI && gyroOrientation[2] > 0.0) {
+        	fusedOrientation[2] = (float) (FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * (accMagOrientation[2] + 2.0 * Math.PI));
+        	fusedOrientation[2] -= (fusedOrientation[2] > Math.PI)? 2.0 * Math.PI : 0;
+        }
+        else {
+        	fusedOrientation[2] = FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * accMagOrientation[2];
+        }
 
  
         // overwrite gyro matrix and orientation with fused orientation
