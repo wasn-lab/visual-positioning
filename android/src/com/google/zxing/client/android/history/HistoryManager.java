@@ -69,7 +69,7 @@ public final class HistoryManager {
       DBHelper.AZIMUTH,
       DBHelper.PITCH,
       DBHelper.ROLL,
-      DBHelper.DISTANCE,
+      DBHelper.SAS_SIZE,
       DBHelper.TIMESTAMP_COL,
   };
 
@@ -160,8 +160,12 @@ public final class HistoryManager {
       close(cursor, db);
     }
   }
+  public void logcatArrayString(String name, double[] array) {
+	    String print = String.format("%8.2f  %8.2f  %8.2f", Math.toDegrees(array[0]), Math.toDegrees(array[0]), Math.toDegrees(array[0]));
+	    Log.w("zxing", name + print);
+}
 
-  public void addHistoryItem(double magAxis[], double fusAxis[], double gpsAxis[], float orientation[], double distance, Result result, ResultHandler handler) {
+  public void addHistoryItem(double magAxis[], double fusAxis[], double gpsAxis[], float orientation[], double sasSize, Result result, ResultHandler handler) {
 	  // Do not save this item to the history if the preference is turned off, or the contents are
 	  // considered secure.
 	  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
@@ -187,7 +191,7 @@ public final class HistoryManager {
 	    values.put(DBHelper.AZIMUTH, orientation[0]);
 	    values.put(DBHelper.PITCH, orientation[1]);
 	    values.put(DBHelper.ROLL, orientation[2]);
-	    values.put(DBHelper.DISTANCE, distance);
+	    values.put(DBHelper.SAS_SIZE, sasSize);
 	    values.put(DBHelper.TIMESTAMP_COL, System.currentTimeMillis());
 	    SQLiteOpenHelper helper = new DBHelper(activity);
 	    SQLiteDatabase db = null;
@@ -279,7 +283,7 @@ public final class HistoryManager {
       historyText.append('"').append(massageHistoryField("azimuth")).append("\",");
       historyText.append('"').append(massageHistoryField("pitch")).append("\",");
       historyText.append('"').append(massageHistoryField("roll")).append("\",");
-      historyText.append('"').append(massageHistoryField("distance")).append("\",");
+      historyText.append('"').append(massageHistoryField("sas_size")).append("\",");
       historyText.append('"').append(massageHistoryField("timestamp")).append("\"\r\n");
       //save data into csv file
       while (cursor.moveToNext()) {
