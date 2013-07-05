@@ -41,6 +41,9 @@ final class DBHelper extends SQLiteOpenHelper {
   static final String GPS_LON = "gps_lon";
   static final String GPS_LAT = "gps_lat";
   static final String GPS_ALT = "gps_alt";
+  static final String SAS_X = "sas_x";
+  static final String SAS_Y = "sas_y";
+  static final String SAS_RD = "sas_rd";
   static final String AZIMUTH = "azimuth";
   static final String PITCH = "pitch";
   static final String ROLL = "roll";
@@ -66,6 +69,9 @@ final class DBHelper extends SQLiteOpenHelper {
             GPS_LON + " REAL, " +
             GPS_LAT + " REAL, " +
             GPS_ALT + " REAL, " +
+            SAS_X + " REAL, " + 
+            SAS_Y + " REAL, " +
+            SAS_RD + " REAL, " +
             AZIMUTH + " INTEGER," +
             PITCH + " INTEGER," +
             ROLL + " INTEGER," +

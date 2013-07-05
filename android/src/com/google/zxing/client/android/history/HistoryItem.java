@@ -25,15 +25,17 @@ public final class HistoryItem {
   private final float mag[];
   private final float fus[];
   private final float gps[];
+  private final double sas_axis[];
   private final float orientation[];
   private final float sasSize;
   private final long timestamp;
   
-  HistoryItem(Result result, float mag[], float fus[], float gps[], float orientation[], float sasSize, long timestamp) {
+  HistoryItem(Result result, float mag[], float fus[], float gps[], double sas_axis[], float orientation[], float sasSize, long timestamp) {
 	  this.result = result;
 	  this.mag = mag;
 	  this.fus = fus;
 	  this.gps = gps;
+	  this.sas_axis = sas_axis;
 	  this.orientation = orientation;
 	  this.sasSize = sasSize;
 	  this.timestamp = timestamp;
@@ -52,7 +54,7 @@ public final class HistoryItem {
 	  String details;
 	  details = "MAG: " + mag[0] + " : " + mag[1] + " : " + mag[2]
 			  +"\nFUS: " + fus[0] + " : " + fus[1] + " : " + fus[2]
-			  +"\nGPS: " + gps[0] + " : " + gps[1] + " : " + gps[2];
+			  +"\nSAS: " + sas_axis[0] + " : " + sas_axis[1] + " : " + sas_axis[2];
 	  return details;
   }
 }
