@@ -498,6 +498,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
     	if(!initState) {
+    		/*
     		//collect 2 point in the same place.
     		positionData newData = new positionData();
         	newData.orientation = fusedOrientation.clone();
@@ -519,7 +520,15 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
         		positionItems.clear();
             	// Then not from history, so beep/vibrate and we have an image to draw on
             	beepManager.playBeepSoundAndVibrate();
-        	}
+        	}*/
+    		double[] sasAxis = viewfinderView.sasRelativePosition().clone();
+    		magVpsAxis =  getVps(accMagOrientation.clone(), sasAxis.clone()).clone();
+    		fusVpsAxis = getVps(fusedOrientation.clone(), sasAxis.clone()).clone();
+    		gpsAxis[0] = viewfinderView.getSasSizeV();
+    		gpsAxis[1] = viewfinderView.getSasSizeH();
+    		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, sasAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
+        	// Then not from history, so beep/vibrate and we have an image to draw on
+        	beepManager.playBeepSoundAndVibrate();
     	}
     	drawResultPoints(barcode, scaleFactor, rawResult);
     }
@@ -559,6 +568,7 @@ private List<positionData> positionItems;
 	  	finalDistance = sasPosition[2];
 */
 //for correct degree error
+/*
 class positionData {
 	  public float[] orientation;
 	  public double[] sasPosition;
@@ -614,13 +624,14 @@ private int findBestCompensation(int compensation) {
 	  }
 	return compensation; //if case 0 or out of bound
 }
-
+*/
 /**
  * Try to find better compensation from 2 different angle
  * @param compensationA
  * @param compensationB
  * @return 1 means compensationA is better. -1 means compensationB is better. 0 means equal.
  */
+/*
 private int chooseBetterCompensation(int compensationA, int compensationB) {
 
 	  if(gapArray[compensationA] < gapArray[compensationB]) {
@@ -631,12 +642,13 @@ private int chooseBetterCompensation(int compensationA, int compensationB) {
 		  return -1;
 	  }
 }
-
+*/
 /**
  * Calculate distance between SAS and camera.
  * @param compensation An compensation for angle.
  * @return
  */
+/*
 private double getStandardDeviation(int compensation) {
 	  positionData data[] = new positionData[sampleNums];
 	  double tiltAngle[] = new double[sampleNums];
@@ -651,7 +663,7 @@ private double getStandardDeviation(int compensation) {
 	  return stdDeviation.evaluate();
 	  //return Math.abs(distance[0] - distance[1]);
 }
-
+*/
 public float[] getOrientationForSas() {
 	float orientationForSas[] = rotateToLandscape(accMagOrientation.clone());
 	orientationForSas[1] = orientationForSas[1] - centerAzimuth - (float)Math.PI/2;
@@ -680,24 +692,26 @@ private float[] rotateToLandscape(float[] beforeRotate) {
 private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
 	double vpsAxis[] = new double[3];
   	//fine tune values for landscape mode
-  	float[] finalOrientation = rotateToLandscape(sourceOrientation.clone());	 
+  	float[] finalOrientation = rotateToLandscape(sourceOrientation.clone());	
+  	finalOrientation[2] = (float) (finalOrientation[2] - sasPosition[1]);
+  	finalOrientation[1] = (float) (finalOrientation[1] + sasPosition[0]);
+  	
     //Rotate Y horizontal balance degree
-    double x1 = sasPosition[0] * Math.cos(finalOrientation[0]) + sasPosition[1] * Math.sin(finalOrientation[0]);
+    double x1 = 0;
     double y1 = sasPosition[2];
-    double z1 = -sasPosition[0] * Math.sin(finalOrientation[0]) + sasPosition[1] * Math.cos(finalOrientation[0]);
+    double z1 = 0;
     //Rotate X vertical degree
     double x2 = x1;
-    double y2 = y1 * Math.cos(finalOrientation[2] - sasPosition[4]) - z1 * Math.sin(finalOrientation[2] - sasPosition[4]);
+    double y2 = y1 * Math.cos(finalOrientation[2]) - z1 * Math.sin(finalOrientation[2]);
     double z2 = y1 * Math.sin(finalOrientation[2]) - z1 * Math.cos(finalOrientation[2]);
     //Rotate Z compass degree
     double x3 = x2 * Math.cos(-finalOrientation[1]) - y2 * Math.sin(-finalOrientation[1]);
     double y3 = x2 * Math.sin(-finalOrientation[1]) + y2 * Math.cos(-finalOrientation[1]);
-    //double y3 = x2 * Math.sin(-finalOrientation[1] + sasPosition[3]) + y2 * Math.cos(-finalOrientation[1] + sasPosition[3]);
     double z3 = z2;
     //Rotate to world coordinate and convert unit to meters
-    vpsAxis[0] = -x3 / 100;	//mapping to longitude經度
-    vpsAxis[1] = -y3 / 100;	//mapping to latitude緯度
-    vpsAxis[2] = z3 / 100;	//mapping to altitude高度
+    vpsAxis[0] = -x3; //mapping to longitude經度
+    vpsAxis[1] = -y3; //mapping to latitude緯度
+    vpsAxis[2] = z3; //mapping to altitude高度
     return vpsAxis;
 }
 
@@ -1000,7 +1014,7 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
   }
   
   public void logcatArrayString(String name, double[] array) {
-	    String print = String.format("%8.2f  %8.2f  %8.2f", Math.toDegrees(array[0]), Math.toDegrees(array[0]), Math.toDegrees(array[0]));
+	    String print = String.format("%8.2f  %8.2f  %8.2f", Math.toDegrees(array[0]), Math.toDegrees(array[1]), Math.toDegrees(array[2]));
 	    Log.w("zxing", name + print);
 }
   
