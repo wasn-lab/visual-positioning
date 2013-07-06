@@ -526,7 +526,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     		fusVpsAxis = getVps(fusedOrientation.clone(), sasAxis.clone()).clone();
     		gpsAxis[0] = viewfinderView.getSasSizeV();
     		gpsAxis[1] = viewfinderView.getSasSizeH();
-    		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, sasAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
+    		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, viewfinderView.getSasInfoForFineTune(), sasAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
         	// Then not from history, so beep/vibrate and we have an image to draw on
         	beepManager.playBeepSoundAndVibrate();
     	}
@@ -1263,6 +1263,26 @@ class calculateFusedOrientationTask extends TimerTask {
             System.arraycopy(accMagOrientation, 0, gyroOrientation, 0, 3);
             initState = false;
     	}
+    	else {
+            //if(count <= 500)
+    		if(false)
+            {
+            	doCalibrateGyroscope();
+            }
+            else
+            {
+            	/*
+            	Log.w("zxing", "GyroDiff:" + avgGyroDiffValues[0] + ":" + avgGyroDiffValues[1] + ":" + avgGyroDiffValues[2]);
+            	gyroOrientation[0] = (float) (gyroOrientation[0] + avgGyroDiffValues[0]);
+            	gyroOrientation[1] = gyroOrientation[1] + avgGyroDiffValues[1];
+            	gyroOrientation[2] = gyroOrientation[2] + avgGyroDiffValues[2];
+            	*/
+            	gyroOrientation[0] = (float) (gyroOrientation[0] -2.061634E-4);
+            	gyroOrientation[1] = (float) (gyroOrientation[1] -6.9556135E-4);
+            	gyroOrientation[2] = (float) (gyroOrientation[2] -0.0012522547);
+            	gyroMatrix = getRotationMatrixFromOrientation(fusedOrientation);
+            }
+    	}
         float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
         /*
          * Fix for 179<--> -179transition problem:
@@ -1309,12 +1329,31 @@ class calculateFusedOrientationTask extends TimerTask {
         	fusedOrientation[2] = FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * accMagOrientation[2];
         }
 
- 
+        
         // overwrite gyro matrix and orientation with fused orientation
         // to comensate gyro drift
         gyroMatrix = getRotationMatrixFromOrientation(fusedOrientation);
         System.arraycopy(fusedOrientation, 0, gyroOrientation, 0, 3);
     }
+}
+
+static int count = 0;
+static float preGyroValues[] = {0,0,0};
+static float cumulativeDiffValues[] = {0,0,0};
+static float avgGyroDiffValues[] = {0,0,0};
+private void doCalibrateGyroscope() {
+	if(count > 0){
+		cumulativeDiffValues[0] = cumulativeDiffValues[0] + (gyroOrientation[0] - preGyroValues[0]);
+		cumulativeDiffValues[1] = cumulativeDiffValues[1] + (gyroOrientation[1] - preGyroValues[1]);
+		cumulativeDiffValues[2] = cumulativeDiffValues[2] + (gyroOrientation[2] - preGyroValues[2]);
+		avgGyroDiffValues[0] = cumulativeDiffValues[0] / count;
+		avgGyroDiffValues[1] = cumulativeDiffValues[1] / count;
+		avgGyroDiffValues[2] = cumulativeDiffValues[2] / count;
+	}
+	preGyroValues[0] = gyroOrientation[0];
+	preGyroValues[1] = gyroOrientation[1];
+	preGyroValues[2] = gyroOrientation[2];
+	count++;
 }
 
 }
