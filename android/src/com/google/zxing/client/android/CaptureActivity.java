@@ -1264,23 +1264,27 @@ class calculateFusedOrientationTask extends TimerTask {
             initState = false;
     	}
     	else {
-            //if(count <= 500)
-    		if(false)
-            {
+            if(count <= 50) {
             	doCalibrateGyroscope();
+            }
+            else if(count == 51) {
+            	gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
+            	count++;
             }
             else
             {
+            	
+            	//Log.w("zxing", "GyroDiff:" + avgGyroDiffValues[0] + ":" + avgGyroDiffValues[1] + ":" + avgGyroDiffValues[2]);
+            	gyroOrientation[0] = gyroOrientation[0] - avgGyroDiffValues[0];
+            	gyroOrientation[1] = gyroOrientation[1] - avgGyroDiffValues[1];
+            	gyroOrientation[2] = gyroOrientation[2] - avgGyroDiffValues[2];
+            	
             	/*
-            	Log.w("zxing", "GyroDiff:" + avgGyroDiffValues[0] + ":" + avgGyroDiffValues[1] + ":" + avgGyroDiffValues[2]);
-            	gyroOrientation[0] = (float) (gyroOrientation[0] + avgGyroDiffValues[0]);
-            	gyroOrientation[1] = gyroOrientation[1] + avgGyroDiffValues[1];
-            	gyroOrientation[2] = gyroOrientation[2] + avgGyroDiffValues[2];
-            	*/
             	gyroOrientation[0] = (float) (gyroOrientation[0] -2.061634E-4);
             	gyroOrientation[1] = (float) (gyroOrientation[1] -6.9556135E-4);
             	gyroOrientation[2] = (float) (gyroOrientation[2] -0.0012522547);
-            	gyroMatrix = getRotationMatrixFromOrientation(fusedOrientation);
+            	*/
+            	gyroMatrix = getRotationMatrixFromOrientation(gyroOrientation);
             }
     	}
         float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
