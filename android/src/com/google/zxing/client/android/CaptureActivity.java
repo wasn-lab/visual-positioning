@@ -157,7 +157,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private float[] gyroOrientation = new float[3];
   
   //for fusion
-	public static final int TIME_CONSTANT = 90; //original:30
+	public static final int TIME_CONSTANT = 100; //original:30
 	public static final float FILTER_COEFFICIENT = 0.98f;
 	private Timer fuseTimer = new Timer();
   
@@ -221,8 +221,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     super.onResume();
     Log.w("zxing", "onResume");
     //for sensors
-    mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-    mSensorManager.registerListener(this, mMagneticField, SensorManager.SENSOR_DELAY_NORMAL);
+    mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+    mSensorManager.registerListener(this, mMagneticField, SensorManager.SENSOR_DELAY_FASTEST);
     mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_FASTEST);
     //for Gyroscope
 	initState = true;
@@ -1253,6 +1253,7 @@ public void onProviderDisabled(String provider) {
 //private float centerAzimuth = (float)-Math.PI; //表示誠正西拍攝(因為尚未校正為橫向，所以是-PI)
 private float centerAzimuth = (float)-Math.PI/2; //表示誠正北拍攝(因為尚未校正為橫向，所以是-PI/2)
 private float shiftRad = 0;
+private int max_count = 100;
 class calculateFusedOrientationTask extends TimerTask {
     public void run() {
     	//initial Gyroscope data
@@ -1264,12 +1265,13 @@ class calculateFusedOrientationTask extends TimerTask {
             initState = false;
     	}
     	else {
-            if(count <= 50) {
+            if(count <= max_count) {
             	doCalibrateGyroscope();
             }
-            else if(count == 51) {
+            else if(count == max_count+1) {
             	gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
             	count++;
+            	return;
             }
             else
             {
@@ -1287,57 +1289,60 @@ class calculateFusedOrientationTask extends TimerTask {
             	gyroMatrix = getRotationMatrixFromOrientation(gyroOrientation);
             }
     	}
-        float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
-        /*
-         * Fix for 179<--> -179transition problem:
-         * Check whether one of the two orientation angles (gyro or accMag) is negative while the other one is positive.
-         * If so, add 360(2 * math.PI) to the negative value, perform the sensor fusion, and remove the 360from the result
-         * if it is greater than 180 This stabilizes the output in positive-to-negative-transition cases.
-         */
-        
-        // azimuth   
-        if (gyroOrientation[0] < -0.5 * Math.PI && accMagOrientation[0] > 0.0) {
-        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT * (gyroOrientation[0] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[0]);
-    		fusedOrientation[0] -= (fusedOrientation[0] > Math.PI) ? 2.0 * Math.PI : 0;
-        }
-        else if (accMagOrientation[0] < -0.5 * Math.PI && gyroOrientation[0] > 0.0) {
-        	fusedOrientation[0] = (float) (FILTER_COEFFICIENT * gyroOrientation[0] + oneMinusCoeff * (accMagOrientation[0] + 2.0 * Math.PI));
-        	fusedOrientation[0] -= (fusedOrientation[0] > Math.PI)? 2.0 * Math.PI : 0;
-        }
-        else {
-        	fusedOrientation[0] = FILTER_COEFFICIENT * gyroOrientation[0] + oneMinusCoeff * accMagOrientation[0];
-        }
-        // pitch
-        if (gyroOrientation[1] < -0.5 * Math.PI && accMagOrientation[1] > 0.0) {
-        	fusedOrientation[1] = (float) (FILTER_COEFFICIENT * (gyroOrientation[1] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[1]);
-    		fusedOrientation[1] -= (fusedOrientation[1] > Math.PI) ? 2.0 * Math.PI : 0;
-        }
-        else if (accMagOrientation[1] < -0.5 * Math.PI && gyroOrientation[1] > 0.0) {
-        	fusedOrientation[1] = (float) (FILTER_COEFFICIENT * gyroOrientation[1] + oneMinusCoeff * (accMagOrientation[1] + 2.0 * Math.PI));
-        	fusedOrientation[1] -= (fusedOrientation[1] > Math.PI)? 2.0 * Math.PI : 0;
-        }
-        else {
-        	fusedOrientation[1] = FILTER_COEFFICIENT * gyroOrientation[1] + oneMinusCoeff * accMagOrientation[1];
-        }
-        
-        // roll
-        if (gyroOrientation[2] < -0.5 * Math.PI && accMagOrientation[2] > 0.0) {
-        	fusedOrientation[2] = (float) (FILTER_COEFFICIENT * (gyroOrientation[2] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[2]);
-    		fusedOrientation[2] -= (fusedOrientation[2] > Math.PI) ? 2.0 * Math.PI : 0;
-        }
-        else if (accMagOrientation[2] < -0.5 * Math.PI && gyroOrientation[2] > 0.0) {
-        	fusedOrientation[2] = (float) (FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * (accMagOrientation[2] + 2.0 * Math.PI));
-        	fusedOrientation[2] -= (fusedOrientation[2] > Math.PI)? 2.0 * Math.PI : 0;
-        }
-        else {
-        	fusedOrientation[2] = FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * accMagOrientation[2];
-        }
+    	if(count > max_count+1) {
+            float oneMinusCoeff = 1.0f - FILTER_COEFFICIENT;
+            /*
+             * Fix for 179<--> -179transition problem:
+             * Check whether one of the two orientation angles (gyro or accMag) is negative while the other one is positive.
+             * If so, add 360(2 * math.PI) to the negative value, perform the sensor fusion, and remove the 360from the result
+             * if it is greater than 180 This stabilizes the output in positive-to-negative-transition cases.
+             */
+            
+            // azimuth   
+            if (gyroOrientation[0] < -0.5 * Math.PI && accMagOrientation[0] > 0.0) {
+            	fusedOrientation[0] = (float) (FILTER_COEFFICIENT * (gyroOrientation[0] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[0]);
+        		fusedOrientation[0] -= (fusedOrientation[0] > Math.PI) ? 2.0 * Math.PI : 0;
+            }
+            else if (accMagOrientation[0] < -0.5 * Math.PI && gyroOrientation[0] > 0.0) {
+            	fusedOrientation[0] = (float) (FILTER_COEFFICIENT * gyroOrientation[0] + oneMinusCoeff * (accMagOrientation[0] + 2.0 * Math.PI));
+            	fusedOrientation[0] -= (fusedOrientation[0] > Math.PI)? 2.0 * Math.PI : 0;
+            }
+            else {
+            	fusedOrientation[0] = FILTER_COEFFICIENT * gyroOrientation[0] + oneMinusCoeff * accMagOrientation[0];
+            }
+            // pitch
+            if (gyroOrientation[1] < -0.5 * Math.PI && accMagOrientation[1] > 0.0) {
+            	fusedOrientation[1] = (float) (FILTER_COEFFICIENT * (gyroOrientation[1] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[1]);
+        		fusedOrientation[1] -= (fusedOrientation[1] > Math.PI) ? 2.0 * Math.PI : 0;
+            }
+            else if (accMagOrientation[1] < -0.5 * Math.PI && gyroOrientation[1] > 0.0) {
+            	fusedOrientation[1] = (float) (FILTER_COEFFICIENT * gyroOrientation[1] + oneMinusCoeff * (accMagOrientation[1] + 2.0 * Math.PI));
+            	fusedOrientation[1] -= (fusedOrientation[1] > Math.PI)? 2.0 * Math.PI : 0;
+            }
+            else {
+            	fusedOrientation[1] = FILTER_COEFFICIENT * gyroOrientation[1] + oneMinusCoeff * accMagOrientation[1];
+            }
+            
+            // roll
+            if (gyroOrientation[2] < -0.5 * Math.PI && accMagOrientation[2] > 0.0) {
+            	fusedOrientation[2] = (float) (FILTER_COEFFICIENT * (gyroOrientation[2] + 2.0 * Math.PI) + oneMinusCoeff * accMagOrientation[2]);
+        		fusedOrientation[2] -= (fusedOrientation[2] > Math.PI) ? 2.0 * Math.PI : 0;
+            }
+            else if (accMagOrientation[2] < -0.5 * Math.PI && gyroOrientation[2] > 0.0) {
+            	fusedOrientation[2] = (float) (FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * (accMagOrientation[2] + 2.0 * Math.PI));
+            	fusedOrientation[2] -= (fusedOrientation[2] > Math.PI)? 2.0 * Math.PI : 0;
+            }
+            else {
+            	fusedOrientation[2] = FILTER_COEFFICIENT * gyroOrientation[2] + oneMinusCoeff * accMagOrientation[2];
+            }
 
-        
-        // overwrite gyro matrix and orientation with fused orientation
-        // to comensate gyro drift
-        gyroMatrix = getRotationMatrixFromOrientation(fusedOrientation);
-        System.arraycopy(fusedOrientation, 0, gyroOrientation, 0, 3);
+            
+            // overwrite gyro matrix and orientation with fused orientation
+            // to comensate gyro drift
+            gyroMatrix = getRotationMatrixFromOrientation(fusedOrientation);
+            System.arraycopy(fusedOrientation, 0, gyroOrientation, 0, 3);
+    	}
+
     }
 }
 
