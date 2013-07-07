@@ -158,7 +158,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   
   //for fusion
 	public static final int TIME_CONSTANT = 100; //original:30
-	public static final float FILTER_COEFFICIENT = 0.98f;
+	public static final float FILTER_COEFFICIENT = 0.995f;
 	private Timer fuseTimer = new Timer();
   
   //for GPS
@@ -1073,6 +1073,9 @@ public void onSensorChanged(SensorEvent event) {
 	}
 }
 
+//accMagOrientation smooth variables
+private List<float[]> accMagOrientationList = new ArrayList<float[]>();
+int smooth_sample_num = 10;
 // calculates orientation angles from accelerometer and magnetometer output
 public void calculateAccMagOrientation() {
 	float[] rotationMatrix = new float[9];
@@ -1080,6 +1083,24 @@ public void calculateAccMagOrientation() {
 	    if(SensorManager.getRotationMatrix(rotationMatrix, null, accelerometer_values, magnitude_values)) {
 	        SensorManager.getOrientation(rotationMatrix, accMagOrientation);
 	        accMagOrientation[0] = accMagOrientation[0] - shiftRad;
+	        //Do accMagOrientation smooth.
+	        accMagOrientationList.add(accMagOrientation.clone());
+	        if(accMagOrientationList.size() == smooth_sample_num)
+	        {
+	        	accMagOrientation[0] = 0;
+	        	accMagOrientation[1] = 0;
+	        	accMagOrientation[2] = 0;
+	        	for(int i=0; i < smooth_sample_num; i++) {
+	        		float[] prevOrientation = accMagOrientationList.get(i);
+	        		accMagOrientation[0] = accMagOrientation[0] + prevOrientation[0];
+	        		accMagOrientation[1] = accMagOrientation[1] + prevOrientation[1];
+	        		accMagOrientation[2] = accMagOrientation[2] + prevOrientation[2];
+	        	}
+	        	accMagOrientation[0] = accMagOrientation[0] / smooth_sample_num;
+	        	accMagOrientation[1] = accMagOrientation[1] / smooth_sample_num;
+	        	accMagOrientation[2] = accMagOrientation[2] / smooth_sample_num;
+	        	accMagOrientationList.remove(0);
+	        }
 	    }
 	}
 }
@@ -1254,6 +1275,12 @@ public void onProviderDisabled(String provider) {
 //private float centerAzimuth = (float)-Math.PI; //表示誠正西拍攝(因為尚未校正為橫向，所以是-PI)
 private float centerAzimuth = (float)-Math.PI/2; //表示誠正北拍攝(因為尚未校正為橫向，所以是-PI/2)
 private float shiftRad = 0;
+
+//gyro calibrate variables
+static int count = 0;
+static float preGyroValues[] = {0,0,0};
+static float cumulativeDiffValues[] = {0,0,0};
+static float avgGyroDiffValues[] = {0,0,0};
 private int max_count = 100;
 class calculateFusedOrientationTask extends TimerTask {
     public void run() {
@@ -1281,12 +1308,10 @@ class calculateFusedOrientationTask extends TimerTask {
             	gyroOrientation[0] = gyroOrientation[0] - avgGyroDiffValues[0];
             	gyroOrientation[1] = gyroOrientation[1] - avgGyroDiffValues[1];
             	gyroOrientation[2] = gyroOrientation[2] - avgGyroDiffValues[2];
-            	
-            	/*
-            	gyroOrientation[0] = (float) (gyroOrientation[0] -2.061634E-4);
-            	gyroOrientation[1] = (float) (gyroOrientation[1] -6.9556135E-4);
-            	gyroOrientation[2] = (float) (gyroOrientation[2] -0.0012522547);
-            	*/
+            	//gyroOrientation[0] = (float) (gyroOrientation[0] -0.0011275113);
+            	//gyroOrientation[1] = (float) (gyroOrientation[1] +1.345028E-5);
+            	//gyroOrientation[2] = (float) (gyroOrientation[2] +2.257757E-4);
+            
             	gyroMatrix = getRotationMatrixFromOrientation(gyroOrientation);
             }
     	}
@@ -1347,10 +1372,6 @@ class calculateFusedOrientationTask extends TimerTask {
     }
 }
 
-static int count = 0;
-static float preGyroValues[] = {0,0,0};
-static float cumulativeDiffValues[] = {0,0,0};
-static float avgGyroDiffValues[] = {0,0,0};
 private void doCalibrateGyroscope() {
 	if(count > 0){
 		cumulativeDiffValues[0] = cumulativeDiffValues[0] + (gyroOrientation[0] - preGyroValues[0]);
