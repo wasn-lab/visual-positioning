@@ -708,6 +708,7 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
     double x3 = x2 * Math.cos(-finalOrientation[1]) - y2 * Math.sin(-finalOrientation[1]);
     double y3 = x2 * Math.sin(-finalOrientation[1]) + y2 * Math.cos(-finalOrientation[1]);
     double z3 = z2;
+    Log.w("zxing", "y1:y2:y3=" + y1 + ":" + y2 + ":" + y3);
     //Rotate to world coordinate and convert unit to meters
     vpsAxis[0] = -x3; //mapping to longitude¸g«×
     vpsAxis[1] = -y3; //mapping to latitude½n«×
