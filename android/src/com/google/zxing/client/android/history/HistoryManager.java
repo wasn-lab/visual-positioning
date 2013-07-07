@@ -66,10 +66,13 @@ public final class HistoryManager {
       DBHelper.GPS_LON,
       DBHelper.GPS_LAT,
       DBHelper.GPS_ALT,
+      DBHelper.SAS_X,
+      DBHelper.SAS_Y,
+      DBHelper.SAS_RD,
       DBHelper.AZIMUTH,
       DBHelper.PITCH,
       DBHelper.ROLL,
-      DBHelper.DISTANCE,
+      DBHelper.SAS_SIZE,
       DBHelper.TIMESTAMP_COL,
   };
 
@@ -111,11 +114,12 @@ public final class HistoryManager {
     	  float mag_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
     	  float fus_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
     	  float gps_axis[] = {cursor.getFloat(7), cursor.getFloat(8), cursor.getFloat(9)};
-    	  float orientation[] = {cursor.getFloat(10), cursor.getFloat(11), cursor.getFloat(12)};
-    	  float distance = cursor.getFloat(13);
-    	  long timestamp = cursor.getLong(14);
+    	  double sas_axis[] = {cursor.getFloat(10), cursor.getFloat(11), cursor.getFloat(12)};
+    	  float orientation[] = {cursor.getFloat(13), cursor.getFloat(14), cursor.getFloat(15)};
+    	  float distance = cursor.getFloat(16);
+    	  long timestamp = cursor.getLong(17);
     	  Result result = new Result(cursor.getString(0), null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
-    	  items.add(new HistoryItem(result, mag_axis, fus_axis, gps_axis, orientation, distance, timestamp));
+    	  items.add(new HistoryItem(result, mag_axis, fus_axis, gps_axis, sas_axis, orientation, distance, timestamp));
     	  }
       } finally {
     	  close(cursor, db);
@@ -134,11 +138,12 @@ public final class HistoryManager {
   	  float mag_axis[] = {cursor.getFloat(1), cursor.getFloat(2), cursor.getFloat(3)};
   	  float fus_axis[] = {cursor.getFloat(4), cursor.getFloat(5), cursor.getFloat(6)};
   	  float gps_axis[] = {cursor.getFloat(7), cursor.getFloat(8), cursor.getFloat(9)};
-  	  float orientation[] = {cursor.getFloat(10), cursor.getFloat(11), cursor.getFloat(12)};
-  	  float distance = cursor.getFloat(13);
-  	  long timestamp = cursor.getLong(14);
+  	  double sas_axis[] = {cursor.getFloat(10), cursor.getFloat(11), cursor.getFloat(12)};
+  	  float orientation[] = {cursor.getFloat(13), cursor.getFloat(14), cursor.getFloat(15)};
+  	  float distance = cursor.getFloat(16);
+  	  long timestamp = cursor.getLong(17);
     	Result result = new Result(cursor.getString(0), null, null, BarcodeFormat.valueOf("QR_CODE"), timestamp);
-    	return new HistoryItem(result, mag_axis, fus_axis, gps_axis, orientation, distance, timestamp);
+    	return new HistoryItem(result, mag_axis, fus_axis, gps_axis, sas_axis, orientation, distance, timestamp);
     	} finally {
     		close(cursor, db);
     		}
@@ -160,8 +165,12 @@ public final class HistoryManager {
       close(cursor, db);
     }
   }
+  public void logcatArrayString(String name, double[] array) {
+	    String print = String.format("%8.2f  %8.2f  %8.2f", Math.toDegrees(array[0]), Math.toDegrees(array[1]), Math.toDegrees(array[2]));
+	    Log.w("zxing", name + print);
+}
 
-  public void addHistoryItem(double magAxis[], double fusAxis[], float gpsAxis[], float orientation[], double distance, Result result, ResultHandler handler) {
+  public void addHistoryItem(double magAxis[], double fusAxis[], double gpsAxis[], double sasAxis[], float orientation[], double sasSize, Result result, ResultHandler handler) {
 	  // Do not save this item to the history if the preference is turned off, or the contents are
 	  // considered secure.
 	  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
@@ -184,10 +193,13 @@ public final class HistoryManager {
 	    values.put(DBHelper.GPS_LON, gpsAxis[0]);
 	    values.put(DBHelper.GPS_LAT, gpsAxis[1]);
 	    values.put(DBHelper.GPS_ALT, gpsAxis[2]);	
+	    values.put(DBHelper.SAS_X, sasAxis[0]);	
+	    values.put(DBHelper.SAS_Y, sasAxis[1]);	
+	    values.put(DBHelper.SAS_RD, sasAxis[2]);
 	    values.put(DBHelper.AZIMUTH, orientation[0]);
 	    values.put(DBHelper.PITCH, orientation[1]);
 	    values.put(DBHelper.ROLL, orientation[2]);
-	    values.put(DBHelper.DISTANCE, distance);
+	    values.put(DBHelper.SAS_SIZE, sasSize);
 	    values.put(DBHelper.TIMESTAMP_COL, System.currentTimeMillis());
 	    SQLiteOpenHelper helper = new DBHelper(activity);
 	    SQLiteDatabase db = null;
@@ -276,31 +288,37 @@ public final class HistoryManager {
       historyText.append('"').append(massageHistoryField("gps_lon")).append("\",");
       historyText.append('"').append(massageHistoryField("gps_lat")).append("\",");
       historyText.append('"').append(massageHistoryField("gps_alt")).append("\",");
+      historyText.append('"').append(massageHistoryField("sas_x")).append("\",");
+      historyText.append('"').append(massageHistoryField("sas_y")).append("\",");
+      historyText.append('"').append(massageHistoryField("sas_rd")).append("\",");
       historyText.append('"').append(massageHistoryField("azimuth")).append("\",");
       historyText.append('"').append(massageHistoryField("pitch")).append("\",");
       historyText.append('"').append(massageHistoryField("roll")).append("\",");
-      historyText.append('"').append(massageHistoryField("distance")).append("\",");
+      historyText.append('"').append(massageHistoryField("sas_size")).append("\",");
       historyText.append('"').append(massageHistoryField("timestamp")).append("\"\r\n");
       //save data into csv file
       while (cursor.moveToNext()) {
-        historyText.append('"').append(massageHistoryField(cursor.getString(0))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(1)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(2)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(3)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(4)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(5)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(6)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(7)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(8)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(9)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(10)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(11)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(12)))).append("\",");
-        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(13)))).append("\",");
+        historyText.append('"').append(massageHistoryField(cursor.getString(0))).append("\",");					//sas_info
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(1)))).append("\",");	//mag_x
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(2)))).append("\",");	//mag_y
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(3)))).append("\",");	//mag_z
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(4)))).append("\",");	//fus_x
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(5)))).append("\",");	//fus_y
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(6)))).append("\",");	//fus_z
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(7)))).append("\",");	//gps_lon
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(8)))).append("\",");	//gps_lat
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(9)))).append("\",");	//gps_alt
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(10)))).append("\",");	//sas_x
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(11)))).append("\",");	//sas_y
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(12)))).append("\",");	//sas_rd
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(13)))).append("\",");	//azimuth
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(14)))).append("\",");	//pitch
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(15)))).append("\",");	//roll
+        historyText.append('"').append(massageHistoryField(String.valueOf(cursor.getFloat(16)))).append("\",");	//sas_size
         // Add timestamp again, formatted
-        long timestamp = cursor.getLong(14);
+        long timestamp = cursor.getLong(17);
         historyText.append('"').append(massageHistoryField(
-            EXPORT_DATE_TIME_FORMAT.format(new Date(timestamp)))).append("\"\r\n");
+            EXPORT_DATE_TIME_FORMAT.format(new Date(timestamp)))).append("\"\r\n");	//timestamp
       }
       return historyText;
     } finally {

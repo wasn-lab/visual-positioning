@@ -213,9 +213,8 @@ public final class ViewfinderView extends View {
    * @author bravesheng@gmail.com
    */
   private void showLocationInfo(Canvas canvas) {
-	  paint.setARGB(255, 255, 255, 0);
-	  paint.setStrokeWidth(5);
-	  paint.setTextSize(30);
+	  paint.setStrokeWidth(8);
+	  paint.setTextSize(40);
 	  if(lastResult != null) {
 		  ResultPoint[] points = lastResult.getResultPoints();
 		  if(points != null) {
@@ -227,30 +226,79 @@ public final class ViewfinderView extends View {
 		      Rect previewFrame = cameraManager.getFramingRectInPreview();
 		      float scaleX = frame.width() / (float) previewFrame.width();
 		      float scaleY = frame.height() / (float) previewFrame.height();
+		      //point[0]->point[1] = vertical
+		      //point[1]->point[2] = horizontal
+		      paint.setARGB(255, 0, 0, 255); //blue will calculate as distance in current version
 			  canvas.drawLine(points[0].getX()*scaleX, points[0].getY()*scaleY, points[1].getX()*scaleX, points[1].getY()*scaleY, paint);
+			  paint.setARGB(255, 0, 255, 0); //green
 			  canvas.drawLine(points[1].getX()*scaleX, points[1].getY()*scaleY, points[2].getX()*scaleX, points[2].getY()*scaleY, paint);
-			  String locStr = "";
-			  locStr = "length = " + calcSasCenterDistance();
-			  canvas.drawText(locStr, (points[0].getX() + points[2].getX()) / 2 *scaleX, (points[0].getY() + points[2].getY()) / 2 *scaleY, paint);
+			  double sasPosition[] = sasRelativePosition();
+			  paint.setARGB(255, 255, 255, 255);
+			  paint.setShadowLayer((float)Math.PI, 2, 2, 0xFF000000);
+			  float azimuth_rad = captureActivity.getOrientationForSas()[1];
+			  float vertical_rad = captureActivity.getOrientationForSas()[2];
+			  String locStr = String.format(" SIZE(B)=%f, SIZE(G)=%f, DISTANCE=%f", getSasSizeV(), getSasSizeH(), sasPosition[2]);	//the real distance
+			  canvas.drawText(locStr, 30, 40, paint);
 			  }
 		  }
 	  }
   
+  
+
+public double[] getSasInfoForFineTune() {
+	  Point cameraResolution = cameraManager.getCameraResolution();
+	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
+	  ResultPoint[] points = lastResult.getResultPoints();
+	  double rad_blue_line = (((points[1].getX() + points[0].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel; //center of blue line in x-axis
+	  double rad_green_line = ((cameraResolution.y / 2) - ((points[1].getY() + points[2].getY()) / 2)) * angle_per_pixel; //center of green line in y-axis
+	  double sizeV = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));	  
+	  double sasInfo[] = {rad_blue_line, rad_green_line, sizeV};
+	  return sasInfo;
+}
+
+double rad_center_x = 0;
+double rad_center_y = 0;
+  
+ public double getSasSizeV() {
+	  Point cameraResolution = cameraManager.getCameraResolution();
+	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
+	  ResultPoint[] points = lastResult.getResultPoints();
+	  double rad_blue_line_x = (((points[1].getX() + points[0].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel; //center of blue line in x-axis
+	  rad_center_y = ((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel; //center of qrcode y-axis
+	  double sizeV = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));	  
+	  //according to test. points[0] -> point1[1] = vertical for QRcode blue line. good for horizontal
+	  float vertical_rad = captureActivity.getOrientationForSas()[2];
+	  sizeV = sizeV * Math.cos(rad_blue_line_x) * Math.cos(rad_center_y);
+	  sizeV = sizeV / Math.cos(vertical_rad);
+	  return sizeV;
+  }
+ 
+ public double getSasSizeH() {
+	  Point cameraResolution = cameraManager.getCameraResolution();
+	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
+	  ResultPoint[] points = lastResult.getResultPoints();
+	  double rad_green_line_y = ((cameraResolution.y / 2) - ((points[1].getY() + points[2].getY()) / 2)) * angle_per_pixel; //center of green line in y-axis
+	  rad_center_x = (((points[0].getX() + points[2].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel; //center of qrcode x-axis	 	 
+	  double sizeH = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
+	  //according to test. points[1] -> point1[2] = horizontal for QRcode. green line. good for vertical
+	  float azimuth_rad = captureActivity.getOrientationForSas()[1];
+	  sizeH = sizeH * Math.cos(rad_green_line_y) * Math.cos(rad_center_x);
+	  sizeH = sizeH / Math.cos(azimuth_rad);
+	  return sizeH;
+ }
   /**
-   * Calculate SAS width. Will compare 2 distance and use longest.
-   * Choose longest length as measurement target.
+   * Calculate SAS width. This function use QRcode vertical(BLUE) and horizontal(GREEN) line to do that.
+   * And this line is good for horizontal  degree measurement.
    * @author bravesheng@gmail.com
    */
   public double getSasSize() {
-	  ResultPoint[] points = lastResult.getResultPoints();
-	  double dist1 = Math.sqrt(Math.pow(Math.abs(points[0].getX() - points[1].getX()),2) + Math.pow(Math.abs(points[0].getY() - points[1].getY()),2));
-	  double dist2 = Math.sqrt(Math.pow(Math.abs(points[1].getX() - points[2].getX()),2) + Math.pow(Math.abs(points[1].getY() - points[2].getY()),2));
-	  if(dist1 > dist2) {
-		  return dist1;
-	  } else {
-		  return dist2;
-	  }
+	  //return getSasSizeV();
+	  double absRadX = Math.abs(rad_center_x);
+	  double absRadY = Math.abs(rad_center_y);
+
+	  return (getSasSizeV() * absRadX + getSasSizeH() * absRadY) / (absRadX + absRadY);
   }
+  
   
   /**
    * Calculate distance between SAS and camera.
@@ -261,9 +309,10 @@ public final class ViewfinderView extends View {
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
 	  double angle_of_sas_size = angle_per_pixel * sas_pixel_length;
-	  //real_distance = tan((pi - angle_of_sas_size) / 2) x (qr_real_distance / 2) 
-	  double real_distance = Math.tan((Math.PI - angle_of_sas_size) / 2) * (qr_real_size / 2);
-	  return real_distance;
+	  //center_distance = tan((pi - angle_of_sas_size) / 2) x (qr_real_distance / 2) 
+	  //this distance is only for center of screen. Will calculate real distance in sasRelativePosition
+	  double center_distance = Math.tan((Math.PI - angle_of_sas_size) / 2) * (qr_real_size / 2);
+	  return center_distance / 100; //meters
   }
   
   /**
@@ -271,19 +320,23 @@ public final class ViewfinderView extends View {
    * Center of the coordinate system is camera. Horizontal axis = sasX, Vertical axis = sasY , Distance axis = sasZ
    * @author bravesheng@gmail.com
    */
-  public float[] sasRelativePosition() {
+  public double[] sasRelativePosition() {
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double angle_per_pixel = cameraManager.getHorizontalViewAngle() / cameraResolution.x;
-	  double sasDistance = calcSasCenterDistance();
+	  double sasCenterDistance = calcSasCenterDistance();
 	  //determin center of SAS
 	  ResultPoint[] points = lastResult.getResultPoints();
-	  float rad_x = (float) ((((points[0].getX() + points[2].getX()) / 2) - (cameraResolution.x / 2)) * angle_per_pixel);
-	  float rad_y = (float) (((cameraResolution.y / 2) - ((points[0].getY() + points[2].getY()) / 2)) * angle_per_pixel);
-	  float sasX = (float) (sasDistance * Math.sin(rad_x));
-	  float sasY = (float) (sasDistance * Math.sin(rad_y));
-	  //recalculate real Z
-	  float sasZ = (float)Math.sqrt(sasX * sasX + sasDistance * sasDistance);
-	  float sasAxis[] = {sasX, sasY, sasZ};
+	  double sasX = sasCenterDistance * Math.sin(rad_center_x);
+	  double sasY = sasCenterDistance * Math.sin(rad_center_y);
+	  //double sasRD = Math.sqrt(sasCenterDistance * sasCenterDistance + sasX * sasX + sasY * sasY) ;	//real distance
+	  //sasRD = sasRD / Math.cos(rad_x) / Math.cos(rad_y);
+	  double sasAxis[] = {rad_center_x, rad_center_y, sasCenterDistance}; //rad_x = x-axis rad. rad_y = x-axis rad. sasRD = real distance for SAS.
 	  return sasAxis;
+  }
+  
+  private CaptureActivity captureActivity;
+  
+  public void setCaptureActivity(CaptureActivity activity) {
+	  captureActivity = activity;
   }
 }

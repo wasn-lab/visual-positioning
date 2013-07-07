@@ -100,6 +100,10 @@
         android:defaultValue="false"
         android:title="@string/preferences_disable_exposure_title"/>
      -->
+    <CheckBoxPreference 
+        android:key="preferences_calibrate_gyroscope"
+        android:title="@string/perferences_calibrate_gyroscope"
+        android:defaultValue="false"/>
   </PreferenceCategory>
   <PreferenceCategory android:title="@string/preferences_try_bsplus">
     <com.google.zxing.client.android.pref.BSPlusPreference
