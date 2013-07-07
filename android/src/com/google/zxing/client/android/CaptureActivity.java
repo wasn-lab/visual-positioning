@@ -1299,11 +1299,11 @@ class calculateFusedOrientationTask extends TimerTask {
             else if(count == max_count+1) {
             	gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
             	count++;
+            	beepManager.playBeepSoundAndVibrate();
             	return;
             }
             else
             {
-            	
             	//Log.w("zxing", "GyroDiff:" + avgGyroDiffValues[0] + ":" + avgGyroDiffValues[1] + ":" + avgGyroDiffValues[2]);
             	gyroOrientation[0] = gyroOrientation[0] - avgGyroDiffValues[0];
             	gyroOrientation[1] = gyroOrientation[1] - avgGyroDiffValues[1];
