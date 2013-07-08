@@ -524,9 +524,7 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     		double[] sasAxis = viewfinderView.sasRelativePosition().clone();
     		magVpsAxis =  getVps(accMagOrientation.clone(), sasAxis.clone()).clone();
     		fusVpsAxis = getVps(fusedOrientation.clone(), sasAxis.clone()).clone();
-    		gpsAxis[0] = viewfinderView.getSasSizeV();
-    		gpsAxis[1] = viewfinderView.getSasSizeH();
-    		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, viewfinderView.getSasInfoForFineTune(), sasAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
+    		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, sasAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
         	// Then not from history, so beep/vibrate and we have an image to draw on
         	beepManager.playBeepSoundAndVibrate();
     	}
