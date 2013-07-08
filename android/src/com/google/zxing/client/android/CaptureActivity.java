@@ -80,7 +80,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import com.musicg.math.statistics.StandardDeviation;
+//import com.musicg.math.statistics.StandardDeviation;
 
 /**
  * This activity opens the camera and does the actual scanning on a background thread. It draws a
