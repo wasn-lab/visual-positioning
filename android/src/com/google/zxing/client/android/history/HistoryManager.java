@@ -21,6 +21,7 @@ import com.google.zxing.BarcodeFormat;
 import com.google.zxing.Result;
 import com.google.zxing.client.android.Intents;
 import com.google.zxing.client.android.PreferencesActivity;
+import com.google.zxing.client.android.camera.CameraManager;
 import com.google.zxing.client.android.result.ResultHandler;
 
 import android.app.Activity;
@@ -170,20 +171,27 @@ public final class HistoryManager {
 	    Log.w("zxing", name + print);
 }
 
-  public void addHistoryItem(double magAxis[], double fusAxis[], double gpsAxis[], double sasAxis[], float orientation[], double sasSize, Result result, ResultHandler handler) {
+  public void addHistoryItem(double magAxis[], double fusAxis[], double gpsAxis[], double sasAxis[], float orientation[], double sasSize, Result result, ResultHandler handler, CameraManager cameraManager) {
 	  // Do not save this item to the history if the preference is turned off, or the contents are
 	  // considered secure.
-	  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
-			  handler.areContentsSecure()) {
-		  return;
-		  }
+	  if(handler != null) {
+		  if (!activity.getIntent().getBooleanExtra(Intents.Scan.SAVE_HISTORY, true) ||
+				  handler.areContentsSecure()) {
+			  return;
+			  }
+	  }
 	  SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(activity);
 	  if (!prefs.getBoolean(PreferencesActivity.KEY_REMEMBER_DUPLICATES, false)) {
-		  deletePrevious(result.getText());
+		  if(result != null) {
+			  deletePrevious(result.getText());
+		  }
 		  }
 	    ContentValues values = new ContentValues();
 	    //Vincent: We need change code to get new result and put data into database.
-	    values.put(DBHelper.SAS_INFO, result.getText());
+	    if(result != null) {
+	    	values.put(DBHelper.SAS_INFO, result.getText());
+	    }
+	    values.put(DBHelper.SAS_INFO, "GO");
 	    values.put(DBHelper.MAG_X, magAxis[0]);
 	    values.put(DBHelper.MAG_Y, magAxis[1]);
 	    values.put(DBHelper.MAG_Z, magAxis[2]);
@@ -201,6 +209,9 @@ public final class HistoryManager {
 	    values.put(DBHelper.ROLL, orientation[2]);
 	    values.put(DBHelper.SAS_SIZE, sasSize);
 	    values.put(DBHelper.TIMESTAMP_COL, System.currentTimeMillis());
+	    if(cameraManager != null) {
+	    	cameraManager.takePicture("/sdcard/vps/" + System.currentTimeMillis() + ".jpg");
+	    }
 	    SQLiteOpenHelper helper = new DBHelper(activity);
 	    SQLiteDatabase db = null;
 	    try {
