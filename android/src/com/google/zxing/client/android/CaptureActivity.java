@@ -531,114 +531,11 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     }
   }
 
-/*
-class positionData {
-	  public float[] orientation;
-	  public double[] sasPosition;
-}
-private List<positionData> positionItems;
-	  	//校正影像傾斜，先寫固定假設SAS的方向是正西方，也就是工五館頂樓的方向
-	  	double radDiff = finalOrientation[1] - sasAzimuth;  //傾斜角
-	  	sasPosition[2] = sasPosition[2] / (float)Math.cos(radDiff);
-	  	finalDistance = sasPosition[2];
-*/
-//for correct degree error
-/*
-class positionData {
-	  public float[] orientation;
-	  public double[] sasPosition;
-}
-private List<positionData> positionItems = new ArrayList<positionData>();
-private static final int minDegree = -89;
-private static final int maxDegree = 90;
-private double gapArray[] = new double[180];
-private static final int sampleNums = 1;
-
-
-private float getCompensation() {
-	  
-	  for(int i=0; i < 180; i++) {
-		  gapArray[i] = getStandardDeviation(i+minDegree);
-		  //Log.w("zxing", "gapArray: " + gapArray[i]);
-	  }	  
-	  int result =  findBestCompensation(maxDegree-10); //means 0 degree
-	  result = result + minDegree;
-	  Log.w("zxing", "Compensation:" + result);
-	  return (float)Math.toRadians(result);
-}
-
-private int findBestCompensation(int compensation) {
-	  switch (chooseBetterCompensation(compensation, compensation+1)) {
-	  case 1:
-		  if(-1 == chooseBetterCompensation(compensation, compensation-1)) {
-			  if(compensation -1 == 0) {
-				  //bound
-				  compensation = compensation - 1;
-				  break;
-			  } else {
-				  //compensation-1 is smaller
-				  return findBestCompensation(compensation-1);
-			  }
-		  } else {
-			  //compensation is smallest
-			  break;
-		  }
-	  case -1:
-		  if(compensation+1 == 179) {
-			  //bound
-			  compensation = compensation + 1;
-			  break;
-		  }
-		  else {
-			  //compensation + 1 is smaller
-			  return findBestCompensation(compensation+1);
-		  }
-	  case 0:
-		  //equal
-		  break;
-	  }
-	return compensation; //if case 0 or out of bound
-}
-*/
-/**
- * Try to find better compensation from 2 different angle
- * @param compensationA
- * @param compensationB
- * @return 1 means compensationA is better. -1 means compensationB is better. 0 means equal.
- */
-/*
-private int chooseBetterCompensation(int compensationA, int compensationB) {
-
-	  if(gapArray[compensationA] < gapArray[compensationB]) {
-		  return 1;
-	  } else if (gapArray[compensationA] == gapArray[compensationB]) {
-		  return 0;
-	  } else {
-		  return -1;
-	  }
-}
-*/
 /**
  * Calculate distance between SAS and camera.
  * @param compensation An compensation for angle.
  * @return
  */
-/*
-private double getStandardDeviation(int compensation) {
-	  positionData data[] = new positionData[sampleNums];
-	  double tiltAngle[] = new double[sampleNums];
-	  double distance[] = new double[sampleNums];
-
-	  for(int i=0; i < sampleNums; i++) {
-		  data[i] = positionItems.get(i);
-		  tiltAngle[i] = data[i].orientation[0] + compensation;	//not yet rotate to landscape mode. So azimuth is orientation[0]
-		  distance[i] = data[i].sasPosition[2] / Math.cos(Math.toRadians(tiltAngle[i]));
-	  }
-	  StandardDeviation stdDeviation = new StandardDeviation(distance);
-	  return stdDeviation.evaluate();
-	  //return Math.abs(distance[0] - distance[1]);
-}
-*/
 public float[] getOrientationForSas() {
 	float orientationForSas[] = rotateToLandscape(accMagOrientation.clone());
 	orientationForSas[1] = orientationForSas[1] - centerAzimuth - (float)Math.PI/2;
@@ -1003,12 +900,16 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
 
 	    String print = String.format("magVpsAxis:%8.2f  %8.2f  %8.2f", magVpsAxis[0], magVpsAxis[1], magVpsAxis[2])
 	    		+ String.format("\nfusVpsAxis:%8.2f  %8.2f  %8.2f", fusVpsAxis[0], fusVpsAxis[1], fusVpsAxis[2])
-	    		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+	    		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", Math.toDegrees(tmpOrientation[0]), Math.toDegrees(tmpOrientation[1]), Math.toDegrees(tmpOrientation[2]));
 	  	//rotate to landscape
 	    tmpOrientation = rotateToLandscape(gyroOrientation.clone());
-	    print = print + String.format("\nGYR:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+	    print = print + String.format("\nGYR:%8.2f  %8.2f  %8.2f", Math.toDegrees(tmpOrientation[0]), Math.toDegrees(tmpOrientation[1]), Math.toDegrees(tmpOrientation[2]));
 	    tmpOrientation = rotateToLandscape(fusedOrientation.clone());    
-	    print = print + String.format("\nFUS:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
+	    print = print + String.format("\nFUS:%8.2f  %8.2f  %8.2f", Math.toDegrees(tmpOrientation[0]), Math.toDegrees(tmpOrientation[1]), Math.toDegrees(tmpOrientation[2]));
+	    double[] sasAxis = viewfinderView.sasRelativePosition();
+	    if(sasAxis != null) {
+	    	print = print + String.format("\nsasAxis:%8.2f  %8.2f  %8.2f", Math.toDegrees(sasAxis[0]), Math.toDegrees(sasAxis[1]), sasAxis[2]);
+	    }
 	 return print;
   }
   
@@ -1247,8 +1148,8 @@ public void onProviderDisabled(String provider) {
 	Log.w("zxing", "onProviderDisabled");
 }
 //Fusion Sensor
-//private float centerAzimuth = (float)-Math.PI; //表示朝正西拍攝(因為尚未校正為橫向，所以是-PI)
-private float centerAzimuth = (float)-Math.PI/2; //表示朝正北拍攝(因為尚未校正為橫向，所以是-PI/2)
+private float centerAzimuth = (float)-Math.PI; //表示朝正西拍攝(因為尚未校正為橫向，所以是-PI)
+//private float centerAzimuth = (float)-Math.PI/2; //表示朝正北拍攝(因為尚未校正為橫向，所以是-PI/2)
 //private float centerAzimuth = 0; //表示朝正東拍攝(因為尚未校正為橫向，所以是0)
 //private float centerAzimuth = (float)Math.PI/2; //表示朝正南拍攝(因為尚未校正為橫向，所以是PI/2)
 private float shiftRad = 0;
