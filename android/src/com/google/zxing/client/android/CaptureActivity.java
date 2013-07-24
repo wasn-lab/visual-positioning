@@ -1002,7 +1002,7 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
 	    tmpOrientation = rotateToLandscape(accMagOrientation.clone());
 
 	    String print = String.format("magVpsAxis:%8.2f  %8.2f  %8.2f", magVpsAxis[0], magVpsAxis[1], magVpsAxis[2])
-	    		+ String.format("\ngpsAxis:%8.2f  %8.2f  %8.2f", gpsAxis[0], gpsAxis[1], gpsAxis[2])
+	    		+ String.format("\nfusVpsAxis:%8.2f  %8.2f  %8.2f", fusVpsAxis[0], fusVpsAxis[1], fusVpsAxis[2])
 	    		+ String.format("\nMAG:%8.2f  %8.2f  %8.2f", tmpOrientation[0]*180/Math.PI, tmpOrientation[1]*180/Math.PI, tmpOrientation[2]*180/Math.PI);
 	  	//rotate to landscape
 	    tmpOrientation = rotateToLandscape(gyroOrientation.clone());
@@ -1248,8 +1248,8 @@ public void onProviderDisabled(String provider) {
 }
 //Fusion Sensor
 //private float centerAzimuth = (float)-Math.PI; //表示朝正西拍攝(因為尚未校正為橫向，所以是-PI)
-//private float centerAzimuth = (float)-Math.PI/2; //表示朝正北拍攝(因為尚未校正為橫向，所以是-PI/2)
-private float centerAzimuth = 0; //表示朝正東拍攝(因為尚未校正為橫向，所以是0)
+private float centerAzimuth = (float)-Math.PI/2; //表示朝正北拍攝(因為尚未校正為橫向，所以是-PI/2)
+//private float centerAzimuth = 0; //表示朝正東拍攝(因為尚未校正為橫向，所以是0)
 //private float centerAzimuth = (float)Math.PI/2; //表示朝正南拍攝(因為尚未校正為橫向，所以是PI/2)
 private float shiftRad = 0;
 
