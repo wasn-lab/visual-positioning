@@ -80,7 +80,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import com.musicg.math.statistics.StandardDeviation;
+//import com.musicg.math.statistics.StandardDeviation;
 
 /**
  * This activity opens the camera and does the actual scanning on a background thread. It draws a
@@ -158,7 +158,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   
   //for fusion
 	public static final int TIME_CONSTANT = 100; //original:30
-	public static final float FILTER_COEFFICIENT = 0.995f;
+	public static final float FILTER_COEFFICIENT = 0.98f;
 	private Timer fuseTimer = new Timer();
   
   //for GPS
@@ -498,35 +498,10 @@ public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     viewfinderView.addSuccessResult(rawResult);
     if (fromLiveScan) {
     	if(!initState) {
-    		/*
-    		//collect 2 point in the same place.
-    		positionData newData = new positionData();
-        	newData.orientation = fusedOrientation.clone();
-        	newData.sasPosition = viewfinderView.sasRelativePosition();
-
-        	positionItems.add(newData);
-        	if(positionItems.size() == sampleNums)
-        	{
-        		//start calculate optimize angle value
-        		if(positionItems.size() > 1) { //do compensation only have at least 2 sample
-        			float bestCompensation = getCompensation();	
-        			fusedOrientation[0] = fusedOrientation[0] + bestCompensation;
-        			//錯的，應該繼續cos與距離相除才對
-        		}
-        		magVpsAxis =  getVps(accMagOrientation.clone(), positionItems.get(sampleNums-1).sasPosition).clone();
-        		fusVpsAxis = getVps(fusedOrientation.clone(), positionItems.get(sampleNums-1).sasPosition).clone();
-        		gpsAxis = positionItems.get(sampleNums-1).sasPosition.clone();
-        		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
-        		positionItems.clear();
-            	// Then not from history, so beep/vibrate and we have an image to draw on
-            	beepManager.playBeepSoundAndVibrate();
-        	}*/
     		double[] sasAxis = viewfinderView.sasRelativePosition().clone();
     		magVpsAxis =  getVps(accMagOrientation.clone(), sasAxis.clone()).clone();
     		fusVpsAxis = getVps(fusedOrientation.clone(), sasAxis.clone()).clone();
-    		gpsAxis[0] = viewfinderView.getSasSizeV();
-    		gpsAxis[1] = viewfinderView.getSasSizeH();
-    		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, viewfinderView.getSasInfoForFineTune(), sasAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler);
+    		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, sasAxis, accMagOrientation, viewfinderView.getSasSize(), rawResult, resultHandler, null);
         	// Then not from history, so beep/vibrate and we have an image to draw on
         	beepManager.playBeepSoundAndVibrate();
     	}
@@ -702,11 +677,11 @@ private double[] getVps(float[] sourceOrientation, double sasPosition[]) {
     double z1 = 0;
     //Rotate X vertical degree
     double x2 = x1;
-    double y2 = y1 * Math.cos(finalOrientation[2]) - z1 * Math.sin(finalOrientation[2]);
-    double z2 = y1 * Math.sin(finalOrientation[2]) - z1 * Math.cos(finalOrientation[2]);
+    double y2 = y1 * Math.cos(finalOrientation[2]);
+    double z2 = y1 * Math.sin(finalOrientation[2]);
     //Rotate Z compass degree
-    double x3 = x2 * Math.cos(-finalOrientation[1]) - y2 * Math.sin(-finalOrientation[1]);
-    double y3 = x2 * Math.sin(-finalOrientation[1]) + y2 * Math.cos(-finalOrientation[1]);
+    double x3 = -y2 * Math.sin(-finalOrientation[1]);
+    double y3 = y2 * Math.cos(-finalOrientation[1]);
     double z3 = z2;
     Log.w("zxing", "y1:y2:y3=" + y1 + ":" + y2 + ":" + y3);
     //Rotate to world coordinate and convert unit to meters
@@ -1272,8 +1247,10 @@ public void onProviderDisabled(String provider) {
 	Log.w("zxing", "onProviderDisabled");
 }
 //Fusion Sensor
-//private float centerAzimuth = (float)-Math.PI; //表示誠正西拍攝(因為尚未校正為橫向，所以是-PI)
-private float centerAzimuth = (float)-Math.PI/2; //表示誠正北拍攝(因為尚未校正為橫向，所以是-PI/2)
+//private float centerAzimuth = (float)-Math.PI; //表示朝正西拍攝(因為尚未校正為橫向，所以是-PI)
+//private float centerAzimuth = (float)-Math.PI/2; //表示朝正北拍攝(因為尚未校正為橫向，所以是-PI/2)
+private float centerAzimuth = 0; //表示朝正東拍攝(因為尚未校正為橫向，所以是0)
+//private float centerAzimuth = (float)Math.PI/2; //表示朝正南拍攝(因為尚未校正為橫向，所以是PI/2)
 private float shiftRad = 0;
 
 //gyro calibrate variables
@@ -1282,6 +1259,8 @@ static float preGyroValues[] = {0,0,0};
 static float cumulativeDiffValues[] = {0,0,0};
 static float avgGyroDiffValues[] = {0,0,0};
 private int max_count = 100;
+private int takePictureCount = 0;	//flag to enable take picture funciton fir manual calculation
+private boolean takePictureEnable = false;
 class calculateFusedOrientationTask extends TimerTask {
     public void run() {
     	//initial Gyroscope data
@@ -1297,6 +1276,7 @@ class calculateFusedOrientationTask extends TimerTask {
             	doCalibrateGyroscope();
             }
             else if(count == max_count+1) {
+            	accMagOrientation[0] = centerAzimuth;
             	gyroMatrix = getRotationMatrixFromOrientation(accMagOrientation);
             	count++;
             	beepManager.playBeepSoundAndVibrate();
@@ -1313,6 +1293,7 @@ class calculateFusedOrientationTask extends TimerTask {
             	//gyroOrientation[2] = (float) (gyroOrientation[2] +2.257757E-4);
             
             	gyroMatrix = getRotationMatrixFromOrientation(gyroOrientation);
+            	count++;
             }
     	}
     	if(count > max_count+1) {
@@ -1367,6 +1348,19 @@ class calculateFusedOrientationTask extends TimerTask {
             // to comensate gyro drift
             gyroMatrix = getRotationMatrixFromOrientation(fusedOrientation);
             System.arraycopy(fusedOrientation, 0, gyroOrientation, 0, 3);
+            
+            if(takePictureEnable) {
+                if(count % 60 == 0 && takePictureCount < 10) {
+                	double fused[] = new double[3];
+                	fused[0] = fusedOrientation[0];
+                	fused[1] = fusedOrientation[1];
+                	fused[2] = fusedOrientation[2];
+            		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, fused, accMagOrientation, 0, null, null, cameraManager);
+                	// Then not from history, so beep/vibrate and we have an image to draw on
+                	beepManager.playBeepSoundAndVibrate();
+                	takePictureCount++;
+                }           	
+            }
     	}
 
     }

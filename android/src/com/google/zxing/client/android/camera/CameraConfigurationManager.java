@@ -127,6 +127,7 @@ final class CameraConfigurationManager {
     }
 
     parameters.setPreviewSize(cameraResolution.x, cameraResolution.y);
+    parameters.setPictureSize(2688, 1520);
     camera.setParameters(parameters);
   }
 

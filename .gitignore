@@ -1,7 +1,6 @@
 *.class
 android/bin
 android/gen
-*.jar
 
 android/.settings/org.eclipse.jdt.core.prefs
 

@@ -18,9 +18,12 @@ package com.google.zxing.client.android.camera;
 
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.Camera;
+import android.hardware.Camera.PictureCallback;
 import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
@@ -29,6 +32,8 @@ import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.client.android.camera.open.OpenCameraManager;
 import java.lang.Math;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 /**
@@ -97,10 +102,8 @@ public final class CameraManager {
     Camera.Parameters parameters = theCamera.getParameters();
     //Because parameters from device is not correct. We measure by ourself and get precise value.
     //Current value is for NEW HTC ONE
-    //HorizontalViewAngle = Math.PI / 180 * parameters.getHorizontalViewAngle();
-    //VerticalViewAngle = Math.PI / 180 * parameters.getVerticalViewAngle();
-    HorizontalViewAngle = 1.48762690614;
-    VerticalViewAngle = 0.84121759574;
+    HorizontalViewAngle = Math.toRadians(parameters.getHorizontalViewAngle());
+    VerticalViewAngle = Math.toRadians(parameters.getVerticalViewAngle());
     String parametersFlattened = parameters == null ? null : parameters.flatten(); // Save these, temporarily
     try {
       configManager.setDesiredCameraParameters(theCamera, false);
@@ -327,5 +330,32 @@ public final class CameraManager {
     return new PlanarYUVLuminanceSource(data, width, height, rect.left, rect.top,
                                         rect.width(), rect.height(), false);
   }
+  
+  private String filename;
+  public void takePicture(String name) {
+	  filename = name;
+	  camera.takePicture(null, null, jpeg);
+  }
+  
+  PictureCallback jpeg = new PictureCallback() {
+	  public void onPictureTaken(byte[] data, Camera camera) {
+		  Bitmap bmp=BitmapFactory.decodeByteArray(data, 0, data.length);
+		  //byte數组轉換成Bitmap
+		  FileOutputStream fop;
+		  try {
+			  fop = new FileOutputStream(filename);
+			  bmp.compress(Bitmap.CompressFormat.JPEG, 100, fop);
+			  fop.close();
+			  System.out.println("Take Photo Success!");
+		  } catch (FileNotFoundException e) {
+			  e.printStackTrace();
+			  System.out.println("FileNotFoundException");
+		  } catch (IOException e) {
+			  e.printStackTrace();
+			  System.out.println("IOException");
+		  }
+		  camera.startPreview();
+	  }
+  };
 
 }
