@@ -1259,7 +1259,8 @@ static float preGyroValues[] = {0,0,0};
 static float cumulativeDiffValues[] = {0,0,0};
 static float avgGyroDiffValues[] = {0,0,0};
 private int max_count = 100;
-private int takePictureCount = 0;
+private int takePictureCount = 0;	//flag to enable take picture funciton fir manual calculation
+private boolean takePictureEnable = false;
 class calculateFusedOrientationTask extends TimerTask {
     public void run() {
     	//initial Gyroscope data
@@ -1347,15 +1348,18 @@ class calculateFusedOrientationTask extends TimerTask {
             // to comensate gyro drift
             gyroMatrix = getRotationMatrixFromOrientation(fusedOrientation);
             System.arraycopy(fusedOrientation, 0, gyroOrientation, 0, 3);
-            if(count % 60 == 0 && takePictureCount < 10) {
-            	double fused[] = new double[3];
-            	fused[0] = fusedOrientation[0];
-            	fused[1] = fusedOrientation[1];
-            	fused[2] = fusedOrientation[2];
-        		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, fused, accMagOrientation, 0, null, null, cameraManager);
-            	// Then not from history, so beep/vibrate and we have an image to draw on
-            	beepManager.playBeepSoundAndVibrate();
-            	takePictureCount++;
+            
+            if(takePictureEnable) {
+                if(count % 60 == 0 && takePictureCount < 10) {
+                	double fused[] = new double[3];
+                	fused[0] = fusedOrientation[0];
+                	fused[1] = fusedOrientation[1];
+                	fused[2] = fusedOrientation[2];
+            		historyManager.addHistoryItem(magVpsAxis, fusVpsAxis, gpsAxis, fused, accMagOrientation, 0, null, null, cameraManager);
+                	// Then not from history, so beep/vibrate and we have an image to draw on
+                	beepManager.playBeepSoundAndVibrate();
+                	takePictureCount++;
+                }           	
             }
     	}
 
