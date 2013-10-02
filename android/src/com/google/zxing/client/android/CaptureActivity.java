@@ -542,6 +542,11 @@ public float[] getOrientationForSas() {
 	return orientationForSas;
 }
 
+/**
+ * Because application run under landscape mode. So we need convert sensor data into landscape rotate.
+ * @param beforeRotate
+ * @return
+ */
 private float[] rotateToLandscape(float[] beforeRotate) {
 	  float[] finalOrientation = new float[3];
 	  
@@ -1148,10 +1153,10 @@ public void onProviderDisabled(String provider) {
 	Log.w("zxing", "onProviderDisabled");
 }
 //Fusion Sensor
-private float centerAzimuth = (float)-Math.PI; //表示朝正西拍攝(因為尚未校正為橫向，所以是-PI)
+//private float centerAzimuth = (float)-Math.PI; //表示朝正西拍攝(因為尚未校正為橫向，所以是-PI)
 //private float centerAzimuth = (float)-Math.PI/2; //表示朝正北拍攝(因為尚未校正為橫向，所以是-PI/2)
 //private float centerAzimuth = 0; //表示朝正東拍攝(因為尚未校正為橫向，所以是0)
-//private float centerAzimuth = (float)Math.PI/2; //表示朝正南拍攝(因為尚未校正為橫向，所以是PI/2)
+private float centerAzimuth = (float)Math.PI/2; //表示朝正南拍攝(因為尚未校正為橫向，所以是PI/2)
 private float shiftRad = 0;
 
 //gyro calibrate variables

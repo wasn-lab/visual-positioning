@@ -60,7 +60,7 @@ public final class ViewfinderView extends View {
   private List<ResultPoint> possibleResultPoints;
   private List<ResultPoint> lastPossibleResultPoints;
   private Result lastResult;
-  private double qr_real_size = 17.65 * 0.821570153; //A3 size QR code length.(cm)
+  private double qr_real_size = 17.9; //A3 size QR code length.(cm)
   //private double qr_real_size = 54.3 * 0.85339562; //A0 size QR code length.(cm)
 
   // This constructor is used when the class is built from an XML resource.
@@ -247,6 +247,10 @@ public final class ViewfinderView extends View {
 double rad_center_x = 0;
 double rad_center_y = 0;
   
+/**
+ * Get vertical length of QR code.
+ * @return pixel of length.
+ */
  public double getSasSizeV() {
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  ResultPoint[] points = lastResult.getResultPoints();
@@ -261,6 +265,10 @@ double rad_center_y = 0;
 	  return sizeV;
   }
  
+ /**
+  * Get horizontal length of QR code.
+  * @return pixel of length.
+  */
  public double getSasSizeH() {
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  ResultPoint[] points = lastResult.getResultPoints();
@@ -287,6 +295,11 @@ double rad_center_y = 0;
 	  return (getSasSizeV() * absRadX + getSasSizeH() * absRadY) / (absRadX + absRadY);
   }
   
+  /**
+   * Calculate angle of object
+   * @param length: how much pixel that SAS size.
+   * @return angle of object
+   */
   private double getAngleFromCenterLength(double length) {
 	  Point cameraResolution = cameraManager.getCameraResolution();
 	  double S2 = ((cameraResolution.x)/2)/Math.tan(cameraManager.getHorizontalViewAngle()/2);
